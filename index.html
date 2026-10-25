@@ -739,7 +739,7 @@ var scene = new THREE.Scene();
 scene.fog = new THREE.FogExp2(0x07140f, 0.0013);
 
 var camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 3000);
-function overviewPos() { return isMobile() ? new THREE.Vector3(0, 76, 130) : new THREE.Vector3(0, 39, 84); }
+function overviewPos() { return isMobile() ? new THREE.Vector3(0, 94, 160) : new THREE.Vector3(0, 48, 104); }
 var WARP_FROM = new THREE.Vector3(0, 95, 210), WARP_LOOK = new THREE.Vector3(0, 57, 0);
 camera.position.copy(WARP_FROM); camera.lookAt(WARP_LOOK);
 
@@ -994,10 +994,21 @@ void surface(vec3 p, out vec3 albedo, out float h, out float spec, out vec3 emit
   float glyph = texture2DGradEXT(uGlyphs, guv, gdx * 0.25, gdy * 0.25).r;
   // de longe os caracteres ficariam menores que um pixel: vira o brilho médio deles
   glyph = mix(0.3, glyph, 1.0 - smoothstep(0.1, 0.28, px));
-  float keep = 1.0 - smoothstep(0.7, 0.88, abs(p.y));
   vec3 green = vec3(0.18, 1.0, 0.32);
-  emit = (green * trail * 1.7 + vec3(0.5, 1.0, 0.58) * isHead * 2.2) * glyph * keep;
-  emit += green * glyph * 0.17 * keep;
+  vec3 rain = (green * trail * 1.7 + vec3(0.5, 1.0, 0.58) * isHead * 2.2) * glyph + green * glyph * 0.17;
+  // polos: ali as colunas da grade de longitude se espremem num ponto, então os polos ganham
+  // uma grade própria "vista de cima" (projeção estereográfica), com ondas de luz saindo do polo
+  float pole = smoothstep(0.62, 0.8, abs(p.y));
+  vec2 pq = p.xz / (1.0 + abs(p.y)) * 30.0;
+  vec2 pdx = dFdx(pq), pdy = dFdy(pq);
+  vec2 pc = floor(pq), pf = fract(pq);
+  float wave = pow(0.5 + 0.5 * sin(length(pq) * 0.9 - uTime * 3.0 + hash12(pc) * 1.2), 6.0);
+  float pgi = floor(hash12(pc + floor(uTime * (3.0 + hash12(pc + 7.0) * 7.0)) * 0.37) * 16.0);
+  vec2 puv = (vec2(mod(pgi, 4.0), floor(pgi / 4.0)) + pf) / 4.0;
+  float pglyph = texture2DGradEXT(uGlyphs, puv, pdx * 0.25, pdy * 0.25).r;
+  pglyph = mix(0.3, pglyph, 1.0 - smoothstep(0.1, 0.28, max(length(pdx), length(pdy))));
+  vec3 polar = green * (0.3 + 1.6 * wave) * pglyph + vec3(0.5, 1.0, 0.58) * wave * wave * pglyph * 0.8;
+  emit = mix(rain, polar, pole);
   albedo = vec3(0.02, 0.075, 0.04);
   h = 0.0; bump = 0.0; spec = 0.0;
   night = vec3(0.0);
@@ -1108,12 +1119,12 @@ void surface(vec3 p, out vec3 albedo, out float h, out float spec, out vec3 emit
   float pw = PIX * 200.0;
   float dots = step(0.7, hash13(floor(cp))) * (1.0 - smoothstep(0.2 - pw * 0.5, 0.2 + pw * 0.5, length(fract(cp) - 0.5)));
   dots = mix(0.09, dots, 1.0 - smoothstep(0.25, 0.7, pw));
-  float cityL = clamp(urban * (0.2 + dots * 1.3) + rings * 0.55, 0.0, 1.6);
+  float cityL = clamp(urban * (0.35 + dots * 1.6) + rings * 0.8, 0.0, 2.0);
   albedo = mix(albedo, albedo * 0.42, urban * 0.85);
   h = fbm3(p * 2.0); bump = 0.12 * (1.0 - urban); spec = 0.05;
   vec3 warm = vec3(1.0, 0.72, 0.36);
-  night = warm * (cityL * 1.5 + canyon * 0.35);
-  emit = warm * cityL * 0.22;
+  night = warm * (cityL * 2.6 + canyon * 0.35);
+  emit = warm * cityL * 0.5;
 }`
 };
 
@@ -1450,16 +1461,23 @@ function updateProms(dt, t) {
 /* =========================================================
    Planetas
    ========================================================= */
-var ORBITS = [0, 13, 19.5, 30.5, 37.5, 44.5, 52];
-var BELT_IN = 23.6, BELT_OUT = 26.4; // cinturão entre Marketing (órbita 2) e Dev (órbita 3): separa o que já foi liberado do que está por vir
+// Cada planeta, com tudo o que gira em volta dele (anéis, luas, malhas, naves), ocupa uma faixa
+// de distância só sua. Com elipses suaves, as faixas nunca se tocam:
+//   Dados 6,1–17,9 · Marketing 18,6–24,5 · cinturão 25,2–27,6 · Dev 27,8–33,2
+//   Gente e Gestão 33,6–45,4 · Produto 45,9–56,1 · Comercial (com as duas luas) 57,0–73,0
+var ORBITS = [0, 12, 21.5, 30.5, 39.5, 51, 65];
+var BELT_IN = 25.2, BELT_OUT = 27.6; // cinturão entre Marketing (órbita 2) e Dev (órbita 3): separa o que já foi liberado do que está por vir
 var SIZES  = [0, 2.0, 2.3, 1.75, 2.1, 1.9, 2.15];
 // Leis de Kepler
 // 1ª: as órbitas são elipses, com o Sol num dos focos (ECC = excentricidade, PERI = direção do periélio)
 // 2ª: cada planeta anda mais rápido perto do Sol e mais devagar longe dele
 // 3ª: quanto maior a órbita, mais longo o "ano": a velocidade média cai com a distância elevada a 1,5
-var ECC  = [0, 0.12, 0.08, 0.07, 0.1, 0.06, 0.07];
+var ECC  = [0, 0.04, 0.03, 0.03, 0.03, 0.03, 0.03];
 var PERI = [0, 0.4, 2.1, 4.0, 5.3, 1.2, 3.1];
 var KEPLER_K = 9;
+// posição de cada planeta quando a página abre: espalhados em volta do Sol, para Dados e Marketing
+// (os dois mais próximos) começarem em lados opostos e nenhum par começar alinhado com a câmera
+var START_ANGLE = [0, -0.6, 2.45, 4.0, 5.45, 1.3, 3.4];
 var SPEEDS = ORBITS.map(function (a, i) { return i ? KEPLER_K / Math.pow(a, 1.5) : 0; });
 function orbitXY(i, E, out) {
   var a = ORBITS[i], e = ECC[i], x = a * (Math.cos(E) - e), y = a * Math.sqrt(1 - e * e) * Math.sin(E), c = Math.cos(PERI[i]), s = Math.sin(PERI[i]);
@@ -1507,14 +1525,105 @@ var windowTex = (function () {
   var W = 64, H = 256, cv = document.createElement('canvas'); cv.width = W; cv.height = H;
   var ctx = cv.getContext('2d'), r = rng(808); ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
   for (var y = 2; y < H; y += 6) for (var x = 2; x < W; x += 5) {
-    if (r() < 0.38) { ctx.fillStyle = 'rgba(255,' + (170 + Math.floor(r() * 60)) + ',' + (90 + Math.floor(r() * 50)) + ',' + (0.45 + r() * 0.55) + ')'; ctx.fillRect(x, y, 2, 3); }
+    if (r() < 0.56) { ctx.fillStyle = 'rgba(255,' + (170 + Math.floor(r() * 60)) + ',' + (90 + Math.floor(r() * 50)) + ',' + (0.45 + r() * 0.55) + ')'; ctx.fillRect(x, y, 2, 3); }
   }
   var tex = new THREE.CanvasTexture(cv); tex.wrapS = tex.wrapT = THREE.RepeatWrapping; tex.anisotropy = 4; return tex;
 })();
 // perfil de torre gótica (raio em função da altura), girado em volta do eixo
 var SPIRE_GEO = new THREE.LatheGeometry([[0.2, 0], [0.18, 0.26], [0.13, 0.3], [0.12, 0.52], [0.085, 0.55], [0.075, 0.76], [0.05, 0.78], [0.035, 0.86], [0.018, 0.96], [0.0, 1.0]]
   .map(function (a) { return new THREE.Vector2(a[0], a[1]); }), 10);
+// superfície de lua: tom base com "mares" escuros e crateras (fundo escuro, borda clara)
+// superfícies de lua, cada tipo com personalidade própria (inspiradas em luas reais)
+function moonTexture(type, seed) {
+  var W = 512, H = 256, cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+  var ctx = cv.getContext('2d'), r = rng(seed * 7919 + 13);
+  for (var w0 = 0; w0 < 10; w0++) r();   // descarta os primeiros sorteios (são parecidos entre sementes próximas)
+  var PAL = {
+    ice:    { base: '#dfe7ef', speck: [200, 225], mare: 'rgba(170,190,215,0.35)' },
+    gray:   { base: '#aaa7b0', speck: [140, 210], mare: 'rgba(70,66,80,0.5)' },
+    sulfur: { base: '#d9c47e', speck: [180, 230], mare: 'rgba(196,140,60,0.4)' },
+    dark:   { base: '#6c6776', speck: [80, 130],  mare: 'rgba(40,36,48,0.45)' },
+    sand:   { base: '#c6a676', speck: [150, 210], mare: 'rgba(120,84,48,0.45)' }
+  }[type];
+  ctx.fillStyle = PAL.base; ctx.fillRect(0, 0, W, H);
+  for (var i = 0; i < 1600; i++) { var v = PAL.speck[0] + Math.floor(r() * (PAL.speck[1] - PAL.speck[0])); ctx.fillStyle = 'rgba(' + v + ',' + v + ',' + (v + 6) + ',0.3)'; ctx.fillRect(r() * W, r() * H, 1 + r() * 2, 1 + r() * 2); }
+  function wrap(fn) { [-W, 0, W].forEach(fn); }
+  function blot(x, y, rad, inner, outer) { wrap(function (ox) { var g = ctx.createRadialGradient(x + ox, y, 0, x + ox, y, rad); g.addColorStop(0, inner); g.addColorStop(1, outer); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x + ox, y, rad, 0, Math.PI * 2); ctx.fill(); }); }
+  function crater(x, y, rad, dark) {
+    wrap(function (ox) {
+      var g = ctx.createRadialGradient(x + ox - rad * 0.15, y - rad * 0.15, 0, x + ox, y, rad);
+      g.addColorStop(0, 'rgba(' + dark + ',0.75)'); g.addColorStop(0.72, 'rgba(' + dark + ',0.45)');
+      g.addColorStop(0.86, 'rgba(240,236,246,0.6)'); g.addColorStop(1, 'rgba(240,236,246,0)');
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x + ox, y, rad, 0, Math.PI * 2); ctx.fill();
+    });
+  }
+  var nM = { ice: 2, gray: 7, sulfur: 3, dark: 4, sand: 5 }[type];
+  for (var m = 0; m < nM; m++) blot(r() * W, 40 + r() * (H - 80), 30 + r() * 55, PAL.mare, PAL.mare.replace(/[\d.]+\)$/, '0)'));
+  if (type === 'ice') {
+    // rachaduras longas e curvas, cor de ferrugem, cruzando o gelo
+    for (var k = 0; k < 34; k++) {
+      var x0 = r() * W, y0 = 20 + r() * (H - 40), x1 = x0 + (r() - 0.5) * 360, y1 = y0 + (r() - 0.5) * 120;
+      ctx.strokeStyle = 'rgba(150,92,80,' + (0.25 + r() * 0.35) + ')'; ctx.lineWidth = 0.8 + r() * 2.2;
+      wrap(function (ox) { ctx.beginPath(); ctx.moveTo(x0 + ox, y0); ctx.quadraticCurveTo((x0 + x1) / 2 + ox + (r() - 0.5) * 80, (y0 + y1) / 2 + (r() - 0.5) * 60, x1 + ox, y1); ctx.stroke(); });
+    }
+    for (var c1 = 0; c1 < 10; c1++) crater(r() * W, 15 + r() * (H - 30), 2 + r() * 6, '150,165,185');
+  } else if (type === 'sulfur') {
+    // manchas de vulcões: centro escuro com auréola alaranjada
+    for (var k2 = 0; k2 < 26; k2++) {
+      var vx = r() * W, vy = 15 + r() * (H - 30), vr = 4 + r() * 16;
+      blot(vx, vy, vr * 2.2, 'rgba(214,120,40,0.45)', 'rgba(214,120,40,0)');
+      blot(vx, vy, vr, 'rgba(40,24,14,0.85)', 'rgba(60,34,18,0)');
+    }
+    for (var c2 = 0; c2 < 8; c2++) crater(r() * W, 15 + r() * (H - 30), 2 + r() * 5, '150,120,60');
+  } else if (type === 'dark') {
+    // uma cratera gigante, com pico central e raios claros de material lançado no impacto
+    var bx = 140 + r() * 230, by = 90 + r() * 70, br = 46;
+    ctx.save(); ctx.globalCompositeOperation = 'lighter';
+    for (var ray = 0; ray < 22; ray++) {
+      var ang = r() * Math.PI * 2, len = 120 + r() * 220, gr2 = ctx.createLinearGradient(bx, by, bx + Math.cos(ang) * len, by + Math.sin(ang) * len * 0.5);
+      gr2.addColorStop(0, 'rgba(140,135,150,0.5)'); gr2.addColorStop(1, 'rgba(140,135,150,0)');
+      ctx.strokeStyle = gr2; ctx.lineWidth = 1.5 + r() * 3;
+      ctx.beginPath(); ctx.moveTo(bx, by); ctx.lineTo(bx + Math.cos(ang) * len, by + Math.sin(ang) * len * 0.5); ctx.stroke();
+    }
+    ctx.restore();
+    crater(bx, by, br, '35,32,42'); blot(bx, by, 7, 'rgba(200,196,210,0.8)', 'rgba(200,196,210,0)');
+    for (var c3 = 0; c3 < 40; c3++) crater(r() * W, 12 + r() * (H - 24), 2 + Math.pow(r(), 2) * 12, '40,36,48');
+  } else {
+    // cinzenta e arenosa: muitas crateras de todos os tamanhos
+    var dk = type === 'sand' ? '96,70,40' : '60,56,68';
+    for (var c4 = 0; c4 < 110; c4++) crater(r() * W, 12 + r() * (H - 24), 2 + Math.pow(r(), 2.2) * 26, dk);
+  }
+  var tex = new THREE.CanvasTexture(cv); tex.anisotropy = 8; return tex;
+}
 var BOX_GEO = new THREE.BoxGeometry(1, 1, 1); BOX_GEO.translate(0, 0.5, 0);
+// família de torres: perfis (raio em função da altura) girados em volta do eixo.
+// segs = número de lados (4 = base quadrada, 6 = hexagonal, 12+ = redonda)
+function lathe(pts, segs) { return new THREE.LatheGeometry(pts.map(function (a) { return new THREE.Vector2(a[0], a[1]); }), segs); }
+var TOWER_GEOS = {
+  // gótica: a original, com degraus e ponta afiada
+  gothic: SPIRE_GEO,
+  // agulha: muito fina e alta, com um anel no meio
+  needle: lathe([[0.1, 0], [0.07, 0.08], [0.045, 0.12], [0.04, 0.55], [0.07, 0.57], [0.07, 0.6], [0.035, 0.62], [0.025, 0.9], [0.008, 0.99], [0, 1]], 8),
+  // zigurate: pirâmide de base quadrada em degraus
+  ziggurat: lathe([[0.32, 0], [0.32, 0.14], [0.25, 0.14], [0.25, 0.3], [0.18, 0.3], [0.18, 0.46], [0.11, 0.46], [0.11, 0.62], [0.05, 0.62], [0.02, 0.9], [0, 1]], 4),
+  // torre-farol: corpo cilíndrico, plataforma larga em disco e antena
+  beacon: lathe([[0.12, 0], [0.1, 0.05], [0.08, 0.1], [0.08, 0.55], [0.22, 0.58], [0.22, 0.62], [0.08, 0.66], [0.06, 0.74], [0.015, 0.76], [0.012, 1], [0, 1]], 14),
+  // cúpula alta: torre de pedra com bulbo no topo, como as cúpulas do deserto
+  bulb: lathe([[0.14, 0], [0.12, 0.06], [0.1, 0.1], [0.1, 0.5], [0.13, 0.53], [0.17, 0.6], [0.17, 0.68], [0.13, 0.76], [0.06, 0.82], [0.02, 0.92], [0, 1]], 12),
+  // hexagonal: prisma de seis lados que afina em degraus
+  hex: lathe([[0.17, 0], [0.17, 0.4], [0.13, 0.42], [0.13, 0.7], [0.09, 0.72], [0.09, 0.86], [0.03, 0.9], [0, 1]], 6)
+};
+// estilo de cada cidade: [torre principal, gêmea, torres menores possíveis]
+var CITY_STYLES = [
+  ['gothic', 'gothic', ['gothic', 'needle', 'hex']],
+  ['beacon', 'needle', ['needle', 'beacon', 'bulb']],
+  ['ziggurat', 'hex', ['ziggurat', 'hex', 'gothic']],
+  ['bulb', 'bulb', ['bulb', 'beacon', 'hex']],
+  ['needle', 'gothic', ['needle', 'needle', 'ziggurat']],
+  ['hex', 'beacon', ['hex', 'ziggurat', 'bulb']]
+];
+// largura de cada formato em relação à altura (o zigurate é largo, a agulha é estreita)
+var TOWER_WIDTH = { gothic: 0.6, needle: 0.75, ziggurat: 0.9, beacon: 0.7, bulb: 0.7, hex: 0.65 };
 function tangentOffset(c, u, v) {
   var t1 = new THREE.Vector3().crossVectors(c, Math.abs(c.y) < 0.9 ? UP : new THREE.Vector3(1, 0, 0)).normalize();
   var t2 = new THREE.Vector3().crossVectors(c, t1);
@@ -1589,7 +1698,7 @@ function setWake(b, w) {
   var u = b.mesh.material.uniforms; u.uDim.value = 0.62 + 0.38 * w; u.uEm.value = 0.55 + 0.45 * w;
   b.wakeables.forEach(function (x) {
     if (x.kind === 'atmo') x.mat.uniforms.uColor.value.copy(x.base).multiplyScalar(0.35 + 0.65 * w);
-    else if (x.kind === 'std') { x.mat.color.copy(x.base).multiplyScalar(0.42 + 0.58 * w); x.mat.emissiveIntensity = x.em * (0.25 + 0.75 * w); }
+    else if (x.kind === 'std') { x.mat.color.copy(x.base).multiplyScalar(0.42 + 0.58 * w); x.mat.emissiveIntensity = x.em * (0.6 + 0.4 * w); }
     else x.mat.opacity = x.base * (0.4 + 0.6 * w);
   });
 }
@@ -1647,10 +1756,12 @@ function makePlanet(b) {
     animators.push(function (t) { ring.rotation.y = t * 0.12; });
   }
   if (b.key === 'gente') {
-    var moonCols = ['#e8e2ff', '#c7b8ff', '#ffffff', '#a995ff'];
+    var moonCols = ['#ffffff', '#e9e4ff', '#ffffff', '#ded6ff'], moonTypes = ['ice', 'gray', 'sulfur', 'dark'];
     for (var m = 0; m < 4; m++) (function (m) {
       var mp = new THREE.Group(); mp.rotation.x = (r() - 0.5) * 1.2; mp.rotation.z = (r() - 0.5) * 0.8; extra.add(mp);
-      var moon = new THREE.Mesh(new THREE.SphereGeometry(0.17 + m * 0.04, 24, 24), new THREE.MeshStandardMaterial({ color: moonCols[m], roughness: 0.9, emissive: new THREE.Color(moonCols[m]), emissiveIntensity: 0.15 }));
+      var mt = moonTexture(moonTypes[m], 11 + m * 37);
+      var moon = new THREE.Mesh(new THREE.SphereGeometry(0.21 + m * 0.05, 48, 32), new THREE.MeshStandardMaterial({ color: moonCols[m], map: mt, bumpMap: mt, bumpScale: 0.035, roughness: 0.95, emissive: new THREE.Color(moonCols[m]), emissiveIntensity: 0.05 }));
+      moon.rotation.set(r() * 6.28, r() * 6.28, 0);
       var mr = R * (1.5 + m * 0.24), sp = 0.9 - m * 0.15, ph = r() * 6.28;
       mp.add(moon); var mol = orbitLine(mr, 0); mol.material.opacity = 0.08; mp.add(mol);
       animators.push(function (t) { var a = ph + t * sp; moon.position.set(Math.cos(a) * mr, 0, Math.sin(a) * mr); });
@@ -1664,19 +1775,21 @@ function makePlanet(b) {
   }
   if (b.key === 'comercial') {
     // cidades: uma torre principal, uma gêmea, torres menores e prédios baixos em volta
-    var spireMat = new THREE.MeshStandardMaterial({ color: 0x3b1d12, roughness: 0.6, metalness: 0.35, emissive: new THREE.Color(0xffb36b), emissiveMap: windowTex, emissiveIntensity: 1.25, flatShading: true });
-    var bldMat = new THREE.MeshStandardMaterial({ color: 0x2a160d, roughness: 0.85, metalness: 0.1, emissive: new THREE.Color(0xffa95a), emissiveMap: windowTex, emissiveIntensity: 0.9 });
+    var spireMat = new THREE.MeshStandardMaterial({ color: 0x3b1d12, roughness: 0.6, metalness: 0.35, emissive: new THREE.Color(0xffb36b), emissiveMap: windowTex, emissiveIntensity: 2.4, flatShading: true });
+    var bldMat = new THREE.MeshStandardMaterial({ color: 0x2a160d, roughness: 0.85, metalness: 0.1, emissive: new THREE.Color(0xffa95a), emissiveMap: windowTex, emissiveIntensity: 2.0 });
     var cr = rng(77), boxes = new THREE.InstancedMesh(BOX_GEO, bldMat, cityDirs.length * 46), bi = 0;
     var m4 = new THREE.Matrix4(), q4 = new THREE.Quaternion(), sc4 = new THREE.Vector3(), p4 = new THREE.Vector3(), rq = new THREE.Quaternion();
     cityDirs.forEach(function (c) {
-      var H = R * (0.3 + cr() * 0.12);
-      [[0, 0, 1], [0.022, 0.012, 0.74]].concat(Array.apply(null, Array(4 + Math.floor(cr() * 4))).map(function () {
-        return [(cr() - 0.5) * 0.12, (cr() - 0.5) * 0.12, 0.22 + cr() * 0.3];
+      var style = CITY_STYLES[cityDirs.indexOf(c) % CITY_STYLES.length];
+      var H = R * (0.26 + cr() * 0.16);   // a altura da torre principal também varia de cidade para cidade
+      [[0, 0, 1, style[0]], [0.022, 0.012, 0.6 + cr() * 0.25, style[1]]].concat(Array.apply(null, Array(4 + Math.floor(cr() * 5))).map(function () {
+        return [(cr() - 0.5) * 0.13, (cr() - 0.5) * 0.13, 0.18 + cr() * 0.36, style[2][Math.floor(cr() * 3)]];
       })).forEach(function (sd) {
-        var sp = new THREE.Mesh(SPIRE_GEO, spireMat), hh = H * sd[2];
+        var sp = new THREE.Mesh(TOWER_GEOS[sd[3]], spireMat), hh = H * sd[2], ww = TOWER_WIDTH[sd[3]] * (0.85 + cr() * 0.3);
         plantOn(sp, tangentOffset(c, sd[0], sd[1]), R * 0.995, cr() * 6.28);
-        sp.scale.set(hh * 0.6, hh, hh * 0.6); mesh.add(sp);
+        sp.scale.set(hh * ww, hh, hh * ww); mesh.add(sp);
       });
+      c.userData = H;
       for (var k = 0; k < 46; k++) {
         var dir = tangentOffset(c, (cr() - 0.5) * 0.26, (cr() - 0.5) * 0.26);
         p4.copy(dir).multiplyScalar(R * 0.995);
@@ -1686,6 +1799,67 @@ function makePlanet(b) {
       }
     });
     boxes.instanceMatrix.needsUpdate = true; mesh.add(boxes);
+    // halo quente sobre cada cidade e luzes de sinalização no topo das torres principais
+    var haloTex = glowTexture('rgba(255,214,150,0.9)', 'rgba(255,150,60,0.35)');
+    var beaconTex = glowTexture('rgba(255,255,255,1)', 'rgba(255,90,60,0.6)');
+    var beacons = [];
+    cityDirs.forEach(function (c, ci) {
+      var halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: haloTex, transparent: true, opacity: 0.55, depthWrite: false, blending: THREE.AdditiveBlending }));
+      halo.position.copy(c).multiplyScalar(R * 1.03); halo.scale.set(R * 0.55, R * 0.55, 1); mesh.add(halo);
+      var bc = new THREE.Sprite(new THREE.SpriteMaterial({ map: beaconTex, transparent: true, opacity: 0.9, depthWrite: false, blending: THREE.AdditiveBlending }));
+      bc.position.copy(c).multiplyScalar(R * 0.995 + c.userData * 1.04); bc.scale.set(R * 0.07, R * 0.07, 1); mesh.add(bc);
+      beacons.push({ s: bc, ph: ci * 1.7 });
+    });
+    animators.push(function (t) { beacons.forEach(function (b2) { var k = Math.max(0, Math.sin(t * 2.2 + b2.ph)); b2.s.material.opacity = 0.25 + 0.75 * k * k; }); });
+    // vilarejos no deserto: casas em cúpula cor de areia e campos de coletores de umidade em volta
+    var vr = rng(9091), villages = [];
+    while (villages.length < 9) {
+      var vy = (vr() - 0.5) * 1.3, vth = vr() * Math.PI * 2, vc = Math.sqrt(1 - vy * vy), vd = new THREE.Vector3(Math.cos(vth) * vc, vy, Math.sin(vth) * vc);
+      if (cityDirs.every(function (c) { return c.dot(vd) < Math.cos(0.32); }) && villages.every(function (o) { return o.dot(vd) < Math.cos(0.35); })) villages.push(vd);
+    }
+    var domeGeo = new THREE.SphereGeometry(1, 18, 9, 0, Math.PI * 2, 0, Math.PI / 2);
+    var domeMat = new THREE.MeshStandardMaterial({ color: 0xd8c29a, roughness: 0.95, metalness: 0.0, emissive: new THREE.Color(0xffc27a), emissiveIntensity: 0.1 });
+    var vapGeo = new THREE.LatheGeometry([[0.0, 0], [0.09, 0], [0.07, 0.06], [0.025, 0.08], [0.025, 0.42], [0.08, 0.44], [0.08, 0.47], [0.025, 0.49], [0.025, 0.72], [0.065, 0.74], [0.065, 0.77], [0.02, 0.79], [0.012, 1.0], [0.0, 1.0]]
+      .map(function (a) { return new THREE.Vector2(a[0], a[1]); }), 8);
+    var vapMat = new THREE.MeshStandardMaterial({ color: 0xc4c8cc, roughness: 0.45, metalness: 0.6, emissive: new THREE.Color(0x8fa0aa), emissiveIntensity: 0.15 });
+    var domes = new THREE.InstancedMesh(domeGeo, domeMat, villages.length * 9), vaps = new THREE.InstancedMesh(vapGeo, vapMat, villages.length * 14);
+    var di = 0, vi = 0;
+    villages.forEach(function (vd) {
+      for (var k = 0; k < 9; k++) {
+        var dir = tangentOffset(vd, (vr() - 0.5) * 0.2, (vr() - 0.5) * 0.2), big = k === 0 ? 1.6 : 1;
+        p4.copy(dir).multiplyScalar(R * 0.993); q4.setFromUnitVectors(UP, dir);
+        var dr = R * (0.016 + vr() * 0.016) * big; sc4.set(dr, dr * (0.75 + vr() * 0.3), dr);
+        m4.compose(p4, q4, sc4); domes.setMatrixAt(di++, m4);
+      }
+      for (var j = 0; j < 14; j++) {
+        var ang = vr() * Math.PI * 2, rad = 0.09 + vr() * 0.08;
+        var dir2 = tangentOffset(vd, Math.cos(ang) * rad, Math.sin(ang) * rad);
+        p4.copy(dir2).multiplyScalar(R * 0.995); q4.setFromUnitVectors(UP, dir2);
+        var vh = R * (0.06 + vr() * 0.04); sc4.set(vh * 0.6, vh, vh * 0.6);
+        m4.compose(p4, q4, sc4); vaps.setMatrixAt(vi++, m4);
+      }
+    });
+    domes.instanceMatrix.needsUpdate = vaps.instanceMatrix.needsUpdate = true; mesh.add(domes); mesh.add(vaps);
+    // docas de pouso circulares ao lado da cidade principal
+    var bayGeo = new THREE.CylinderGeometry(1, 1.08, 1, 28, 1, true); bayGeo.translate(0, 0.5, 0);
+    var bayMat = new THREE.MeshStandardMaterial({ color: 0xd9c49e, roughness: 0.85, side: THREE.DoubleSide });
+    var padMat = new THREE.MeshStandardMaterial({ color: 0x5a4632, roughness: 0.9, emissive: new THREE.Color(0xffb36b), emissiveIntensity: 0.25 });
+    var padGeo = new THREE.CircleGeometry(1, 28); padGeo.rotateX(-Math.PI / 2); padGeo.translate(0, 0.02, 0);
+    for (var bI = 0; bI < 4; bI++) {
+      var ba = bI * 1.57 + 0.4, bdir = tangentOffset(cityDirs[0], Math.cos(ba) * 0.16, Math.sin(ba) * 0.16);
+      var bay = new THREE.Mesh(bayGeo, bayMat), pad = new THREE.Mesh(padGeo, padMat), br = R * 0.055;
+      plantOn(bay, bdir, R * 0.992, 0); bay.scale.set(br, R * 0.02, br); mesh.add(bay);
+      plantOn(pad, bdir, R * 0.992, 0); pad.scale.set(br, 1, br); mesh.add(pad);
+    }
+    // duas pequenas luas arenosas
+    [[0.22, 2.1, 0.55, 0.3], [0.15, 2.75, 0.38, -0.4]].forEach(function (md, mi) {
+      var mtx = moonTexture('sand', 71 + mi * 29);
+      var mp2 = new THREE.Group(); mp2.rotation.set(md[3], 0, md[3] * 0.6); extra.add(mp2);
+      var mo = new THREE.Mesh(new THREE.SphereGeometry(md[0], 40, 28), new THREE.MeshStandardMaterial({ map: mtx, bumpMap: mtx, bumpScale: 0.03, roughness: 0.95 }));
+      mp2.add(mo); var ml = orbitLine(R * md[1], 0); ml.material.color.set(0xf2c14e); ml.material.opacity = 0.08; mp2.add(ml);
+      var ph2 = mi * 2.4;
+      animators.push(function (t) { var a2 = ph2 + t * md[2]; mo.position.set(Math.cos(a2) * R * md[1], 0, Math.sin(a2) * R * md[1]); mo.rotation.y = t * 0.1; });
+    });
     // naves que voam de uma cidade para outra, subindo e descendo em arco
     var ships = [], last = 0, fwd = new THREE.Vector3(), nxt = new THREE.Vector3(), upv = new THREE.Vector3(), rgt = new THREE.Vector3(), mb = new THREE.Matrix4(), tmpD = new THREE.Vector3();
     function nextLeg(s) {
@@ -1720,7 +1894,7 @@ function makePlanet(b) {
   var hit = new THREE.Mesh(new THREE.SphereGeometry(Math.max(R * 2.1, 3), 12, 12), new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false }));
   hit.userData.key = b.key; holder.add(hit); pickables.push(hit);
 
-  b.R = R; b.pivot = pivot; b.holder = holder; b.mesh = mesh; b.phase = r() * Math.PI * 2;
+  b.R = R; b.pivot = pivot; b.holder = holder; b.mesh = mesh; b.phase = START_ANGLE[i] - PERI[i];
   planets[b.key] = b;
 
   // materiais que variam entre adormecido e desperto
@@ -1801,7 +1975,7 @@ BODIES[0].R = SUN_R; planets.sol = BODIES[0];
 (function belt() {
   var n = 2200, pos = new Float32Array(n * 3), r = rng(91);
   for (var i = 0; i < n; i++) {
-    var a = r() * Math.PI * 2, rad = 62 + r() * 8 + Math.sin(a * 5) * 0.8;
+    var a = r() * Math.PI * 2, rad = 77 + r() * 8 + Math.sin(a * 5) * 0.8;
     pos[i * 3] = Math.cos(a) * rad; pos[i * 3 + 1] = (r() - 0.5) * 1.6; pos[i * 3 + 2] = Math.sin(a) * rad;
   }
   var g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
@@ -2268,7 +2442,8 @@ function damp(k, dt) { return 1 - Math.exp(-k * dt); }
 function tick() {
   var dt = Math.min(clock.getDelta(), 0.05), t = clock.elapsedTime;
   state.timeScale += ((state.focus ? 0.04 : 1) - state.timeScale) * damp(2.5, dt);
-  state.sim += dt * state.timeScale * (REDUCED ? 0.35 : 1);
+  // as órbitas ficam paradas na tela de início, para a posição na chegada ser sempre a mesma
+  state.sim += dt * state.timeScale * (REDUCED ? 0.35 : 1) * (state.mode === 'intro' ? 0 : 1);
 
   sunMat.uniforms.uTime.value = t;
   var pulse = REDUCED ? 1 : 1 + Math.sin(t * 1.7) * 0.035;

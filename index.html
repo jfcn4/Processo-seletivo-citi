@@ -731,7 +731,7 @@ BODIES.forEach(function (b, i) {
    ========================================================= */
 var canvas = document.getElementById('scene');
 var renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, powerPreference: 'high-performance' });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.75));
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, isMobile() ? 1.5 : 2));
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setClearColor(0x07140f, 1);
 
@@ -750,7 +750,17 @@ controls.maxPolarAngle = Math.PI * 0.49; controls.rotateSpeed = 0.55; controls.z
 controls.autoRotate = !REDUCED; controls.autoRotateSpeed = 0.18;
 controls.enabled = false;
 
-var composer = new THREE.EffectComposer(renderer);
+// O brilho (bloom) desenha a cena numa imagem intermediária. Com multiamostragem (4 amostras
+// por pixel) nessa imagem, as bordas dos planetas deixam de ficar em "escadinha".
+var composer, composerMSAA = false;
+(function () {
+  var pr = renderer.getPixelRatio();
+  if (renderer.capabilities.isWebGL2 && THREE.WebGLMultisampleRenderTarget) {
+    var rt = new THREE.WebGLMultisampleRenderTarget(window.innerWidth * pr, window.innerHeight * pr, { format: THREE.RGBAFormat });
+    rt.samples = 4;
+    composer = new THREE.EffectComposer(renderer, rt); composerMSAA = true;
+  } else composer = new THREE.EffectComposer(renderer);
+})();
 composer.addPass(new THREE.RenderPass(scene, camera));
 var bloom = new THREE.UnrealBloomPass(new THREE.Vector2(window.innerWidth / 2, window.innerHeight / 2), 0.8, 0.55, 0.82);
 composer.addPass(bloom);
@@ -799,8 +809,13 @@ function ramp(stops, t) {
    ========================================================= */
 var PLANET_VS = `
 varying vec3 vObj; varying vec3 vViewPos; varying vec3 vNormalV; varying vec3 vSunView; varying float vDist;
+varying vec3 vT1; varying vec3 vT2;
 void main(){
   vObj = position;
+  vec3 pn = normalize(position);
+  vec3 a = abs(pn.y) > 0.99 ? vec3(1.0, 0.0, 0.0) : vec3(0.0, 1.0, 0.0);
+  vec3 t1 = normalize(cross(pn, a)), t2 = cross(pn, t1);
+  vT1 = normalize(normalMatrix * t1); vT2 = normalize(normalMatrix * t2);
   vec4 wp = modelMatrix * vec4(position, 1.0);
   vDist = length(wp.xyz);
   vec4 mv = viewMatrix * wp;
@@ -810,9 +825,7 @@ void main(){
   gl_Position = projectionMatrix * mv;
 }`;
 
-var PLANET_FS_HEAD = `
-uniform float uTime; uniform float uDim; uniform float uEm; uniform vec3 uRim;
-varying vec3 vObj; varying vec3 vViewPos; varying vec3 vNormalV; varying vec3 vSunView; varying float vDist;
+var NOISE_GLSL = `
 vec3 mod289(vec3 x){ return x - floor(x * (1.0 / 289.0)) * 289.0; }
 vec4 mod289(vec4 x){ return x - floor(x * (1.0 / 289.0)) * 289.0; }
 vec4 permute(vec4 x){ return mod289(((x * 34.0) + 1.0) * x); }
@@ -856,10 +869,21 @@ float snoise(vec3 v){
   m = m * m;
   return 42.0 * dot(m * m, vec4(dot(p0, x0), dot(p1, x1), dot(p2, x2), dot(p3, x3)));
 }
-float fbm(vec3 p){ float v = 0.0, a = 0.5; for (int i = 0; i < 6; i++){ v += a * snoise(p); p = p * 2.02 + vec3(1.7, 9.2, 3.1); a *= 0.5; } return v; }
-float fbm3(vec3 p){ float v = 0.0, a = 0.5; for (int i = 0; i < 3; i++){ v += a * snoise(p); p = p * 2.03 + vec3(4.1, 2.3, 7.7); a *= 0.5; } return v; }
+// fbm com antisserrilhado: w = quanto p muda de um pixel para o vizinho. Cada camada (oitava)
+// fica duas vezes mais fina que a anterior; quando ela ficaria menor que um pixel, some suavemente.
+float fbm(vec3 p){ float w = length(fwidth(p)), v = 0.0, a = 0.5; for (int i = 0; i < 6; i++){ v += a * (1.0 - smoothstep(0.3, 0.75, w)) * snoise(p); p = p * 2.02 + vec3(1.7, 9.2, 3.1); w *= 2.02; a *= 0.5; } return v; }
+float fbm3(vec3 p){ float w = length(fwidth(p)), v = 0.0, a = 0.5; for (int i = 0; i < 3; i++){ v += a * (1.0 - smoothstep(0.3, 0.75, w)) * snoise(p); p = p * 2.03 + vec3(4.1, 2.3, 7.7); w *= 2.03; a *= 0.5; } return v; }
+float fbmRaw(vec3 p){ float v = 0.0, a = 0.5; for (int i = 0; i < 6; i++){ v += a * snoise(p); p = p * 2.02 + vec3(1.7, 9.2, 3.1); a *= 0.5; } return v; }
+float fbm3Raw(vec3 p){ float v = 0.0, a = 0.5; for (int i = 0; i < 3; i++){ v += a * snoise(p); p = p * 2.03 + vec3(4.1, 2.3, 7.7); a *= 0.5; } return v; }
 float hash12(vec2 p){ vec3 p3 = fract(vec3(p.xyx) * 0.1031); p3 += dot(p3, p3.yzx + 33.33); return fract((p3.x + p3.y) * p3.z); }
 float hash13(vec3 p){ p = fract(p * 0.1031); p += dot(p, p.zyx + 31.32); return fract((p.x + p.y) * p.z); }
+`;
+var PLANET_FS_HEAD = `
+uniform float uTime; uniform float uDim; uniform float uEm; uniform vec3 uRim; uniform float uPixAng; uniform float uRadius;
+float PIX;   // tamanho de um pixel na superfície, em unidades da esfera de raio 1
+varying vec3 vObj; varying vec3 vViewPos; varying vec3 vNormalV; varying vec3 vSunView; varying float vDist;
+varying vec3 vT1; varying vec3 vT2; uniform float uBumpK; uniform float uOldBump;
+` + NOISE_GLSL + `
 // grade de latitude/longitude com antisserrilhado
 float latLongGrid(vec3 p, vec2 count, out vec2 g){
   float lon = atan(p.z, p.x) / 6.28318 + 0.5;
@@ -874,16 +898,30 @@ float latLongGrid(vec3 p, vec2 count, out vec2 g){
 var PLANET_FS_MAIN = `
 void main(){
   vec3 p = normalize(vObj);
+  PIX = length(vViewPos) * uPixAng / uRadius;
   vec3 albedo; float h; float spec; vec3 emit; vec3 night; float bump;
   surface(p, albedo, h, spec, emit, night, bump);
-  // relevo: perturba a normal pela derivada da altura na tela
-  vec3 N = normalize(vNormalV);
-  vec3 dpdx = dFdx(vViewPos), dpdy = dFdy(vViewPos);
-  float dhdx = dFdx(h), dhdy = dFdy(h);
-  vec3 r1 = cross(dpdy, N), r2 = cross(N, dpdx);
-  float det = dot(dpdx, r1);
-  vec3 grad = sign(det) * (dhdx * r1 + dhdy * r2);
-  N = normalize(abs(det) * N - grad * bump);
+  // relevo: mede a altura do terreno em dois pontos vizinhos na própria superfície (não na tela),
+  // o que evita os "quadradinhos" que surgem quando a placa de vídeo compara pixels em blocos 2x2
+  vec3 N;
+  if (uOldBump > 0.5) {
+    // método antigo: derivada da altura medida na tela
+    N = normalize(vNormalV);
+    vec3 dpdx = dFdx(vViewPos), dpdy = dFdy(vViewPos);
+    float dhdx = dFdx(h), dhdy = dFdy(h);
+    vec3 r1 = cross(dpdy, N), r2 = cross(N, dpdx);
+    float det = dot(dpdx, r1);
+    vec3 grad = sign(det) * (dhdx * r1 + dhdy * r2);
+    N = normalize(abs(det) * N - grad * bump);
+  } else {
+    vec3 a = abs(p.y) > 0.99 ? vec3(1.0, 0.0, 0.0) : vec3(0.0, 1.0, 0.0);
+    vec3 t1 = normalize(cross(p, a)), t2 = cross(p, t1);
+    const float EPS = 0.008;
+    float h0 = fbm3(p * uBumpK);
+    float h1 = fbm3(normalize(p + t1 * EPS) * uBumpK);
+    float h2 = fbm3(normalize(p + t2 * EPS) * uBumpK);
+    N = normalize(normalize(vNormalV) - (((h1 - h0) / EPS) * normalize(vT1) + ((h2 - h0) / EPS) * normalize(vT2)) * bump * 0.6);
+  }
   // luz do Sol, que enfraquece com a distância
   vec3 L = normalize(vSunView - vViewPos);
   vec3 V = normalize(-vViewPos);
@@ -904,8 +942,8 @@ var SURFACES = {
   // Dados: mundo oceânico gelado, com uma grade de dados e pontos que piscam
   dados: `
 void surface(vec3 p, out vec3 albedo, out float h, out float spec, out vec3 emit, out vec3 night, out float bump){
-  float n = fbm(p * 2.0);
-  float d = fbm(p * 7.0);
+  float n = fbmRaw(p * 2.0);
+  float d = fbmRaw(p * 7.0);
   vec3 ocean = mix(vec3(0.015, 0.11, 0.16), vec3(0.05, 0.40, 0.47), smoothstep(-0.5, 0.15, n));
   ocean += vec3(0.0, 0.05, 0.06) * d;
   float land = smoothstep(0.16, 0.2, n);
@@ -926,61 +964,87 @@ void surface(vec3 p, out vec3 albedo, out float h, out float spec, out vec3 emit
 }`,
   // Dev: planeta-placa de circuito, com trilhas ortogonais que pulsam e vias brilhando
   dev: `
+uniform sampler2D uGlyphs;
 void surface(vec3 p, out vec3 albedo, out float h, out float spec, out vec3 emit, out vec3 night, out float bump){
-  float n = fbm(p * 2.3);
-  float m = fbm3(p * 1.6);
-  albedo = mix(vec3(0.025, 0.045, 0.04), vec3(0.1, 0.15, 0.12), smoothstep(-0.5, 0.5, n));
-  vec2 g;
-  float poles = latLongGrid(p, vec2(56.0, 28.0), g);
-  float keep = 1.0 - smoothstep(0.72, 0.9, abs(p.y));
-  vec2 cid = floor(g);
-  vec2 f = fract(g) - 0.5;
-  vec2 fw = min(fwidth(g), vec2(0.5)) + 1e-4;
-  float r = hash12(cid);
-  float th = 0.07;
-  float hl = 1.0 - smoothstep(th, th + fw.y * 1.5, abs(f.y));
-  float vl = 1.0 - smoothstep(th, th + fw.x * 1.5, abs(f.x));
-  float trace = r < 0.42 ? hl : (r < 0.72 ? vl : (r < 0.84 ? max(hl * step(0.0, f.x), vl * step(0.0, f.y)) : 0.0));
-  float via = step(0.86, r) * (1.0 - smoothstep(0.17, 0.17 + fw.x * 1.5, length(f)));
-  float board = smoothstep(-0.12, 0.0, m) * keep;
-  albedo = mix(albedo, vec3(0.04, 0.12, 0.08), board * 0.8);
-  float pulse = 0.35 + 0.65 * pow(0.5 + 0.5 * sin(g.x * 0.5 + g.y * 0.3 - uTime * 2.6 + r * 5.0), 3.0);
-  emit = vec3(0.31, 0.9, 0.47) * board * (trace * pulse * 0.9 + via * 1.2);
-  night = vec3(0.4, 1.0, 0.6) * board * trace * 0.25;
-  h = fbm3(p * 3.0) * 0.6 + board * trace * 0.05;
-  bump = 0.08; spec = 0.25 * board;
+  float lon = atan(p.z, p.x) / 6.28318 + 0.5;
+  float la = asin(clamp(p.y, -1.0, 1.0)) / 3.14159 + 0.5;
+  // derivadas da longitude sem o salto na "costura" onde ela volta de 1 para 0
+  float lonB = fract(lon + 0.5);
+  float dlx = dFdx(lon), dly = dFdy(lon), dbx = dFdx(lonB), dby = dFdy(lonB);
+  if (abs(dbx) + abs(dby) < abs(dlx) + abs(dly)) { dlx = dbx; dly = dby; }
+  vec2 COUNT = vec2(84.0, 42.0);
+  vec2 g = vec2(lon, la) * COUNT;
+  vec2 gdx = vec2(dlx, dFdx(la)) * COUNT, gdy = vec2(dly, dFdy(la)) * COUNT;
+  float px = max(length(gdx), length(gdy));   // quantas células cabem num pixel
+  vec2 cell = floor(g), f = fract(g);
+  // cada coluna tem velocidade, comprimento de rastro e ritmo próprios
+  float colId = cell.x;
+  float sp = 2.5 + hash12(vec2(colId, 7.0)) * 6.5;
+  float len = 9.0 + hash12(vec2(colId, 3.0)) * 18.0;
+  float per = COUNT.y * (0.45 + hash12(vec2(colId, 11.0)) * 0.55);
+  float head = mod(uTime * sp + hash12(vec2(colId, 5.0)) * per, per);
+  float row = COUNT.y - cell.y;
+  float dd = mod(head - row, per);
+  float trail = dd < len ? pow(1.0 - dd / len, 1.5) : 0.0;
+  float isHead = 1.0 - smoothstep(0.0, 1.0, dd);
+  // o caractere de cada célula troca entre 0 e 1 de tempos em tempos
+  float rate = 3.0 + hash12(cell) * 7.0;   // trocas por segundo
+  float gi = floor(hash12(cell + floor(uTime * rate) * 0.37) * 16.0);
+  vec2 guv = (vec2(mod(gi, 4.0), floor(gi / 4.0)) + f) / 4.0;
+  float glyph = texture2DGradEXT(uGlyphs, guv, gdx * 0.25, gdy * 0.25).r;
+  // de longe os caracteres ficariam menores que um pixel: vira o brilho médio deles
+  glyph = mix(0.3, glyph, 1.0 - smoothstep(0.1, 0.28, px));
+  float keep = 1.0 - smoothstep(0.7, 0.88, abs(p.y));
+  vec3 green = vec3(0.18, 1.0, 0.32);
+  emit = (green * trail * 1.7 + vec3(0.5, 1.0, 0.58) * isHead * 2.2) * glyph * keep;
+  emit += green * glyph * 0.17 * keep;
+  albedo = vec3(0.02, 0.075, 0.04);
+  h = 0.0; bump = 0.0; spec = 0.0;
+  night = vec3(0.0);
 }`,
   // Marketing: gigante gasoso vibrante, com faixas e uma grande tempestade
   marketing: `
 void surface(vec3 p, out vec3 albedo, out float h, out float spec, out vec3 emit, out vec3 night, out float bump){
-  vec3 w = vec3(fbm3(p * 2.5 + vec3(uTime * 0.015, 0.0, 0.0)), fbm3(p * 2.5 + vec3(5.2, 1.3, 0.0)), 0.0);
-  float lat = p.y + w.x * 0.18;
-  float bands = sin(lat * 16.0 + fbm3(p * 1.6) * 2.5);
-  float streak = fbm(vec3(p.x * 3.0, p.y * 36.0, p.z * 3.0) + w * 2.0);
-  float t = clamp(0.5 + bands * 0.32 + streak * 0.35, 0.0, 1.0);
-  vec3 c1 = vec3(0.24, 0.03, 0.13), c2 = vec3(0.78, 0.15, 0.38), c3 = vec3(1.0, 0.47, 0.4), c4 = vec3(1.0, 0.84, 0.62);
-  albedo = t < 0.33 ? mix(c1, c2, t / 0.33) : (t < 0.66 ? mix(c2, c3, (t - 0.33) / 0.33) : mix(c3, c4, (t - 0.66) / 0.34));
+  float tt = uTime * 0.012;
+  vec3 q = p * 2.2;
+  vec3 w = vec3(fbm3(q + vec3(tt, 0.0, 0.0)), fbm3(q + vec3(5.2, 1.3, tt)), fbm3(q + vec3(2.1, 7.7, 3.3)));
+  float lat = p.y + w.x * 0.14;
+  float bands = sin(lat * 15.0 + fbm3(p * 1.4) * 2.2);
+  // faixas finas esticadas na horizontal e redemoinhos entre elas
+  float streak = fbm(vec3(p.x * 2.5, p.y * 22.0, p.z * 2.5) + w * 1.6);
+  float eddy = fbm(p * 6.0 + w * 2.5);
+  float t = clamp(0.5 + bands * 0.3 + streak * 0.3 + eddy * 0.12, 0.0, 1.0);
+  vec3 c1 = vec3(0.22, 0.03, 0.12), c2 = vec3(0.74, 0.14, 0.36), c3 = vec3(1.0, 0.46, 0.4), c4 = vec3(1.0, 0.86, 0.66);
+  // transição de cores com curvas suaves (sem "quinas" entre um tom e outro)
+  albedo = mix(c1, c2, smoothstep(0.0, 0.38, t));
+  albedo = mix(albedo, c3, smoothstep(0.32, 0.7, t));
+  albedo = mix(albedo, c4, smoothstep(0.66, 1.0, t));
+  // a grande tempestade: espiral que gira devagar
   vec3 S = normalize(vec3(0.62, -0.28, 0.73));
-  float sd = length(p - S);
-  float swirl = fbm3(p * 14.0 + vec3(sd * 30.0));
-  float storm = 1.0 - smoothstep(0.16, 0.24, sd + swirl * 0.03);
-  vec3 stormCol = mix(vec3(1.0, 0.92, 0.82), vec3(0.95, 0.25, 0.42), smoothstep(0.0, 0.16, sd + swirl * 0.04));
+  vec3 rel = p - S;
+  float sd = length(rel);
+  vec3 tA = normalize(cross(S, vec3(0.0, 1.0, 0.0))), tB = cross(S, tA);
+  float ang = atan(dot(rel, tB), dot(rel, tA));
+  float swirlN = fbm3(p * 9.0);
+  float spiral = sin(ang * 3.0 + sd * 40.0 - uTime * 0.25 + swirlN * 1.5);
+  float storm = 1.0 - smoothstep(0.15, 0.25, sd + swirlN * 0.025);
+  vec3 stormCol = mix(vec3(1.0, 0.93, 0.84), vec3(0.93, 0.26, 0.42), smoothstep(0.0, 0.17, sd) * (0.6 + 0.4 * spiral));
   albedo = mix(albedo, stormCol, storm);
-  h = streak * 0.3; bump = 0.04; spec = 0.08;
+  h = 0.0; bump = 0.0; spec = 0.06;
   emit = vec3(0.0); night = vec3(0.0);
 }`,
   // Gente e Gestão: mundo habitável lilás, com nuvens e luzes de cidades no lado da noite
   gente: `
 void surface(vec3 p, out vec3 albedo, out float h, out float spec, out vec3 emit, out vec3 night, out float bump){
-  float n = fbm(p * 1.7);
-  float d = fbm(p * 6.0);
+  float n = fbmRaw(p * 1.7);
+  float d = fbmRaw(p * 6.0);
   float e = n + d * 0.25;
   float land = smoothstep(0.04, 0.08, e);
   vec3 ocean = mix(vec3(0.05, 0.04, 0.2), vec3(0.17, 0.13, 0.45), smoothstep(-0.6, 0.05, e));
   vec3 ground = mix(vec3(0.42, 0.33, 0.72), vec3(0.66, 0.56, 0.88), smoothstep(0.08, 0.35, e));
   ground = mix(ground, vec3(0.93, 0.9, 1.0), smoothstep(0.42, 0.55, e));
   albedo = mix(ocean, ground, land);
-  float cl = fbm(p * 2.6 + vec3(uTime * 0.012, 0.0, uTime * 0.006));
+  float cl = fbmRaw(p * 2.6 + vec3(uTime * 0.012, 0.0, uTime * 0.006));
   float clouds = smoothstep(0.12, 0.5, cl);
   albedo = mix(albedo, vec3(0.97, 0.95, 1.0), clouds * 0.7);
   h = land * e * (1.0 - clouds); bump = 0.14;
@@ -1004,26 +1068,52 @@ void surface(vec3 p, out vec3 albedo, out float h, out float spec, out vec3 emit
   vec2 g;
   float line = latLongGrid(p, vec2(36.0, 18.0), g);
   albedo += vec3(0.55, 0.78, 1.0) * (contour * (0.3 + 0.3 * major) + line * 0.2);
-  h = n + d * 0.2; bump = 0.1; spec = 0.2;
+  h = fbm3(p * 2.2); bump = 0.08; spec = 0.2;
   emit = vec3(0.45, 0.7, 1.0) * contour * 0.12;
   night = vec3(0.0);
 }`,
   // Comercial: deserto dourado, com dunas e cânions que acendem como rotas à noite
   comercial: `
+uniform vec3 uCities[6];
 void surface(vec3 p, out vec3 albedo, out float h, out float spec, out vec3 emit, out vec3 night, out float bump){
-  float n = fbm(p * 2.1);
-  float d = fbm(p * 7.5);
-  float dunes = sin(dot(p, vec3(22.0, 6.0, 14.0)) + fbm3(p * 3.5) * 7.0) * 0.5 + 0.5;
-  float t = clamp(0.4 + n * 0.45 + dunes * 0.28 + d * 0.1, 0.0, 1.0);
-  vec3 c1 = vec3(0.2, 0.11, 0.03), c2 = vec3(0.62, 0.38, 0.1), c3 = vec3(0.92, 0.69, 0.27), c4 = vec3(1.0, 0.9, 0.66);
-  albedo = t < 0.33 ? mix(c1, c2, t / 0.33) : (t < 0.66 ? mix(c2, c3, (t - 0.33) / 0.33) : mix(c3, c4, (t - 0.66) / 0.34));
-  float rid = 1.0 - abs(snoise(p * 2.4 + vec3(fbm3(p * 3.0) * 0.7)));
-  float cw = fwidth(rid);
-  float canyon = smoothstep(0.95 - cw, 0.975 + cw, rid);
-  albedo = mix(albedo, vec3(0.13, 0.06, 0.02), canyon * 0.85);
-  h = n * 0.6 + dunes * 0.12 + d * 0.15; bump = 0.14; spec = 0.05;
-  night = vec3(1.0, 0.75, 0.3) * canyon * 0.9;
-  emit = vec3(0.0);
+  float n = fbm(p * 2.0);
+  float d = fbm(p * 7.0);
+  // dunas: ondulações levadas pelo vento; de longe as ondas finas viram tom médio
+  float duneArg = dot(p, vec3(26.0, 7.0, 15.0)) + fbm3(p * 3.2) * 8.0;
+  float dunes = mix(0.5, sin(duneArg) * 0.5 + 0.5, 1.0 - smoothstep(0.5, 1.6, PIX * 31.0));
+  // planaltos em degraus, com bordas suaves
+  float s5 = (n + 0.6) * 5.0;
+  float terr = (floor(s5) + smoothstep(0.0, 0.3, fract(s5))) / 5.0;
+  float t = clamp(0.36 + terr * 0.2 + n * 0.18 + dunes * 0.22 + d * 0.14, 0.0, 1.0);
+  vec3 c1 = vec3(0.19, 0.1, 0.035), c2 = vec3(0.6, 0.36, 0.11), c3 = vec3(0.9, 0.66, 0.28), c4 = vec3(1.0, 0.88, 0.62);
+  albedo = mix(c1, c2, smoothstep(0.0, 0.38, t));
+  albedo = mix(albedo, c3, smoothstep(0.32, 0.68, t));
+  albedo = mix(albedo, c4, smoothstep(0.64, 1.0, t));
+  // cânions: vales largos, com fundo escuro e bordas mais claras
+  float rid = 1.0 - abs(snoise(p * 2.0 + vec3(fbm3(p * 3.0) * 0.7)));
+  float canyon = smoothstep(0.82, 0.96, rid);
+  float rim = smoothstep(0.72, 0.82, rid) * (1.0 - canyon);
+  albedo = mix(albedo, albedo * 1.18, rim * 0.6);
+  albedo = mix(albedo, vec3(0.3, 0.15, 0.06), canyon * 0.55);
+  // cidades: anéis de avenidas iluminadas em volta das torres, como na foto de referência
+  float urban = 0.0, rings = 0.0;
+  for (int i = 0; i < 6; i++) {
+    float rr = sqrt(2.0 * max(1.0 - dot(p, uCities[i]), 0.0));   // distância angular até o centro da cidade
+    float m = 1.0 - smoothstep(0.05, 0.17, rr);
+    urban = max(urban, m);
+    float ra = rr * 150.0;
+    rings += m * smoothstep(0.7, 1.0, sin(ra)) * (1.0 - smoothstep(1.0, 3.0, fwidth(ra)));
+  }
+  vec3 cp = p * 200.0;
+  float pw = PIX * 200.0;
+  float dots = step(0.7, hash13(floor(cp))) * (1.0 - smoothstep(0.2 - pw * 0.5, 0.2 + pw * 0.5, length(fract(cp) - 0.5)));
+  dots = mix(0.09, dots, 1.0 - smoothstep(0.25, 0.7, pw));
+  float cityL = clamp(urban * (0.2 + dots * 1.3) + rings * 0.55, 0.0, 1.6);
+  albedo = mix(albedo, albedo * 0.42, urban * 0.85);
+  h = fbm3(p * 2.0); bump = 0.12 * (1.0 - urban); spec = 0.05;
+  vec3 warm = vec3(1.0, 0.72, 0.36);
+  night = warm * (cityL * 1.5 + canyon * 0.35);
+  emit = warm * cityL * 0.22;
 }`
 };
 
@@ -1252,7 +1342,7 @@ function updateComet(dt) {
    ========================================================= */
 var SUN_R = 4.4;
 var sunMat = new THREE.ShaderMaterial({
-  uniforms: { uTime: { value: 0 } },
+  uniforms: { uTime: { value: 0 }, uFeet: { value: [0, 1, 2, 3, 4, 5].map(function () { return new THREE.Vector4(0, 1, 0, 0); }) } },
   vertexShader: [
     'varying vec3 vPos; varying vec3 vNormal; varying vec3 vView;',
     'void main(){ vPos = position; vNormal = normalize(normalMatrix * normal);',
@@ -1289,30 +1379,33 @@ coronaB.scale.set(SUN_R * 9, SUN_R * 9, 1); sunGroup.add(coronaB);
 /* Erupções solares (proeminências): arcos de plasma que sobem dos dois pés,
    ficam pulsando e se desfazem. De longe são discretas; de perto, marcantes. */
 var proms = [], promNext = 3;
-var PROM_VS = 'varying vec2 vUv; varying vec3 vN; varying vec3 vV; void main(){ vUv = uv; vN = normalize(normalMatrix * normal); vec4 mv = modelViewMatrix * vec4(position, 1.0); vV = -mv.xyz; gl_Position = projectionMatrix * mv; }';
-var PROM_FS = [
-  'uniform float uProg; uniform float uFade; uniform float uTime; uniform float uNear; uniform float uSeed;',
-  'varying vec2 vUv; varying vec3 vN; varying vec3 vV;',
-  'float h1(float x){ return fract(sin(x * 127.1 + uSeed * 31.7) * 43758.5453); }',
-  'float vn(float x){ float i = floor(x), f = fract(x); f = f * f * (3.0 - 2.0 * f); return mix(h1(i), h1(i + 1.0), f); }',
-  'void main(){',
-  ' float e = 1.0 - abs(vUv.x * 2.0 - 1.0);',
-  ' float vis = 1.0 - smoothstep(uProg - 0.14, uProg, e);',
-  // plasma escorrendo: dois ruídos que andam em direções opostas ao longo do filamento
-  ' float flow = vn(vUv.x * 16.0 - uTime * 1.6) * 0.6 + vn(vUv.x * 43.0 + uTime * 2.4) * 0.4;',
-  ' float edge = abs(dot(normalize(vN), normalize(vV)));',
-  ' vec3 col = mix(vec3(0.3, 0.92, 0.5), vec3(0.93, 1.0, 0.9), (1.0 - e) * 0.55 + flow * 0.25);',
-  ' float a = vis * uFade * uNear * smoothstep(0.0, 0.7, edge) * smoothstep(0.0, 0.1, e) * (0.25 + 0.95 * flow);',
-  ' gl_FragColor = vec4(col, a * 0.62); }'
-].join('\n');
+var PROM_VS = 'varying vec2 vUv; varying vec3 vN; varying vec3 vV; varying vec3 vP; void main(){ vUv = uv; vP = position; vN = normalize(normalMatrix * normal); vec4 mv = modelViewMatrix * vec4(position, 1.0); vV = -mv.xyz; gl_Position = projectionMatrix * mv; }';
+var PROM_FS = `
+uniform float uProg; uniform float uFade; uniform float uTime; uniform float uNear; uniform float uSeed;
+varying vec2 vUv; varying vec3 vN; varying vec3 vV; varying vec3 vP;
+` + NOISE_GLSL + `
+void main(){
+  float e = 1.0 - abs(vUv.x * 2.0 - 1.0);   // 0 nos pés, 1 no topo do arco
+  float vis = 1.0 - smoothstep(uProg - 0.14, uProg, e);
+  // o mesmo plasma turbulento da superfície, escorrendo ao longo do arco
+  float flow = fbm3(vP * 1.6 + vec3(uSeed, -uTime * 0.35, uTime * 0.25));
+  float fil = snoise(vec3(vUv.x * 12.0 - uTime * 0.9, vUv.y * 2.0, uSeed * 3.0));
+  float dens = clamp(0.55 + 0.7 * flow + 0.3 * fil, 0.0, 1.0);
+  float edge = abs(dot(normalize(vN), normalize(vV)));
+  float base = 1.0 - smoothstep(0.0, 0.4, e);   // perto da superfície o plasma é mais quente
+  vec3 col = mix(vec3(0.22, 0.82, 0.4), vec3(0.7, 1.0, 0.76), dens);
+  col = mix(col, vec3(0.96, 1.0, 0.95), base * 0.6);
+  float a = vis * uFade * uNear * smoothstep(0.0, 0.7, edge) * dens * (0.55 + 0.45 * base);
+  gl_FragColor = vec4(col, a * 0.72);
+}`;
 function spawnProm(near) {
-  var n = new THREE.Vector3(Math.random() * 2 - 1, Math.random() * 2 - 1, Math.random() * 2 - 1).normalize();
+  // como no Sol real, as erupções nascem em faixas de latitude média (regiões ativas)
+  var n; do { n = new THREE.Vector3(Math.random() * 2 - 1, Math.random() * 2 - 1, Math.random() * 2 - 1).normalize(); } while (Math.abs(n.y) > 0.55);
   var helper = Math.abs(n.y) < 0.9 ? new THREE.Vector3(0, 1, 0) : new THREE.Vector3(1, 0, 0);
   var tdir = new THREE.Vector3().crossVectors(n, helper).normalize().applyAxisAngle(n, Math.random() * Math.PI * 2);
   var k = new THREE.Vector3().crossVectors(n, tdir).normalize();
   var span = 0.18 + Math.random() * 0.3, h = SUN_R * (0.25 + Math.random() * 0.45), wob = Math.random() * 6.28;
   var group = new THREE.Group(), mats = [], strands = 3 + Math.floor(Math.random() * 3);
-  // um feixe de filamentos finos, cada um com uma curva levemente diferente
   for (var sI = 0; sI < strands; sI++) {
     var ok = (Math.random() - 0.5) * h * 0.22, oh = 0.85 + Math.random() * 0.3, ph = Math.random() * 6.28, pts = [];
     for (var i = 0; i <= 16; i++) {
@@ -1322,12 +1415,13 @@ function spawnProm(near) {
     }
     var mat = new THREE.ShaderMaterial({
       uniforms: { uProg: { value: 0 }, uFade: { value: 1 }, uTime: { value: 0 }, uNear: { value: 0.3 }, uSeed: { value: Math.random() * 10 } },
-      vertexShader: PROM_VS, fragmentShader: PROM_FS, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending });
-    group.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 100, SUN_R * (0.012 + Math.random() * 0.016), 6, false), mat));
+      vertexShader: PROM_VS, fragmentShader: PROM_FS, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, extensions: { derivatives: true } });
+    group.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 100, SUN_R * (0.014 + Math.random() * 0.018), 6, false), mat));
     mats.push(mat);
   }
-  sunGroup.add(group);
-  proms.push({ mesh: group, mats: mats, t: 0, grow: 1.4 + Math.random() * 0.6, hold: 2.5 + Math.random() * 2, fade: 1.8 });
+  sun.add(group);   // preso à superfície: gira junto com o Sol
+  var footA = n.clone().applyAxisAngle(k, -span), footB = n.clone().applyAxisAngle(k, span);
+  proms.push({ mesh: group, mats: mats, feet: [footA, footB], t: 0, prog: 0, fd: 1, grow: 1.4 + Math.random() * 0.6, hold: 2.5 + Math.random() * 2, fade: 1.8 });
 }
 function updateProms(dt, t) {
   if (REDUCED) return;
@@ -1338,14 +1432,19 @@ function updateProms(dt, t) {
     var p = proms[i], end = p.grow + p.hold;
     p.t += dt;
     var prog = Math.min(1.14, p.t / p.grow * 1.14), fd = p.t < end ? 1 : Math.max(0, 1 - (p.t - end) / p.fade), nr = 0.2 + 0.8 * nearK;
+    p.prog = prog; p.fd = fd;
     p.mats.forEach(function (m) { var u = m.uniforms; u.uTime.value = t; u.uNear.value = nr; u.uProg.value = prog; u.uFade.value = fd; });
     p.mesh.scale.setScalar(1 + 0.06 * Math.min(1, p.t / (end + p.fade)));
     if (p.t > end + p.fade) {
-      sunGroup.remove(p.mesh);
+      sun.remove(p.mesh);
       p.mesh.children.forEach(function (m) { m.geometry.dispose(); m.material.dispose(); });
       proms.splice(i, 1);
     }
   }
+  // pés das erupções acesos na superfície (regiões ativas)
+  var fe = sunMat.uniforms.uFeet.value, fi = 0;
+  proms.forEach(function (p) { var w = p.fd * Math.min(1, p.prog); p.feet.forEach(function (f) { if (fi < 6) fe[fi++].set(f.x, f.y, f.z, w); }); });
+  for (; fi < 6; fi++) fe[fi].w = 0;
 }
 
 /* =========================================================
@@ -1383,10 +1482,111 @@ var ringTex = (function () {
 })();
 
 var CITI_C = new THREE.Color(0x4fe577), navHover = null;
+// ângulo que um pixel da tela ocupa (compartilhado por todos os planetas; atualizado ao redimensionar)
+var PIX_ANG = { value: 1 };
+function updatePixAng() { PIX_ANG.value = 2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) / (window.innerHeight * renderer.getPixelRatio()); }
+updatePixAng();
+var UP = new THREE.Vector3(0, 1, 0);
+// atlas 4x4 com os caracteres 0 e 1 em traços diferentes, para a chuva de Dev
+var glyphTex = (function () {
+  var S = 512, T = 128, cv = document.createElement('canvas'); cv.width = cv.height = S;
+  var ctx = cv.getContext('2d'); ctx.fillStyle = '#000'; ctx.fillRect(0, 0, S, S);
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#fff';
+  var fonts = ['700 104px "Courier New", Courier, monospace', '400 108px "Courier New", Courier, monospace', '700 96px Consolas, "Lucida Console", monospace', '900 100px monospace'];
+  for (var i = 0; i < 16; i++) {
+    ctx.font = fonts[(i >> 1) % 4];
+    ctx.shadowColor = 'rgba(255,255,255,0.55)'; ctx.shadowBlur = 8;
+    ctx.fillText(i % 2 ? '1' : '0', (i % 4) * T + T / 2, Math.floor(i / 4) * T + T / 2 + 6);
+  }
+  var tex = new THREE.CanvasTexture(cv);
+  tex.anisotropy = renderer.capabilities.getMaxAnisotropy(); tex.minFilter = THREE.LinearMipmapLinearFilter;
+  return tex;
+})();
+// janelas acesas para as torres e prédios de Comercial
+var windowTex = (function () {
+  var W = 64, H = 256, cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+  var ctx = cv.getContext('2d'), r = rng(808); ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
+  for (var y = 2; y < H; y += 6) for (var x = 2; x < W; x += 5) {
+    if (r() < 0.38) { ctx.fillStyle = 'rgba(255,' + (170 + Math.floor(r() * 60)) + ',' + (90 + Math.floor(r() * 50)) + ',' + (0.45 + r() * 0.55) + ')'; ctx.fillRect(x, y, 2, 3); }
+  }
+  var tex = new THREE.CanvasTexture(cv); tex.wrapS = tex.wrapT = THREE.RepeatWrapping; tex.anisotropy = 4; return tex;
+})();
+// perfil de torre gótica (raio em função da altura), girado em volta do eixo
+var SPIRE_GEO = new THREE.LatheGeometry([[0.2, 0], [0.18, 0.26], [0.13, 0.3], [0.12, 0.52], [0.085, 0.55], [0.075, 0.76], [0.05, 0.78], [0.035, 0.86], [0.018, 0.96], [0.0, 1.0]]
+  .map(function (a) { return new THREE.Vector2(a[0], a[1]); }), 10);
+var BOX_GEO = new THREE.BoxGeometry(1, 1, 1); BOX_GEO.translate(0, 0.5, 0);
+function tangentOffset(c, u, v) {
+  var t1 = new THREE.Vector3().crossVectors(c, Math.abs(c.y) < 0.9 ? UP : new THREE.Vector3(1, 0, 0)).normalize();
+  var t2 = new THREE.Vector3().crossVectors(c, t1);
+  return c.clone().addScaledVector(t1, u).addScaledVector(t2, v).normalize();
+}
+function plantOn(obj, dir, rad, rot) { obj.position.copy(dir).multiplyScalar(rad); obj.quaternion.setFromUnitVectors(UP, dir); obj.rotateY(rot); }
+function slerpDir(a, b, t, out) {
+  var d = Math.max(-1, Math.min(1, a.dot(b))), om = Math.acos(d);
+  if (om < 1e-4) return out.copy(a);
+  var s = Math.sin(om);
+  return out.copy(a).multiplyScalar(Math.sin((1 - t) * om) / s).addScaledVector(b, Math.sin(t * om) / s);
+}
+// nave pequena: casco com placas, asas enflechadas, motores com brilho e rastro
+var shipKit = (function () {
+  var hc = document.createElement('canvas'); hc.width = 256; hc.height = 128;
+  var x = hc.getContext('2d'), r = rng(31);
+  var gr = x.createLinearGradient(0, 0, 0, 128); gr.addColorStop(0, '#c9d0d4'); gr.addColorStop(0.5, '#9aa4aa'); gr.addColorStop(1, '#6d777d');
+  x.fillStyle = gr; x.fillRect(0, 0, 256, 128);
+  x.strokeStyle = 'rgba(40,46,50,0.55)'; x.lineWidth = 1;
+  for (var i = 0; i < 18; i++) { x.beginPath(); var px = r() * 256; x.moveTo(px, 0); x.lineTo(px, 128); x.stroke(); }
+  for (var j = 0; j < 8; j++) { x.beginPath(); var py = r() * 128; x.moveTo(0, py); x.lineTo(256, py); x.stroke(); }
+  x.fillStyle = '#d9783a'; x.fillRect(0, 58, 256, 7);
+  x.fillStyle = 'rgba(30,34,38,0.6)'; for (var k = 0; k < 30; k++) x.fillRect(r() * 256, r() * 128, 3 + r() * 6, 2 + r() * 4);
+  var lc = document.createElement('canvas'); lc.width = 256; lc.height = 128;
+  var y = lc.getContext('2d'); y.fillStyle = '#000'; y.fillRect(0, 0, 256, 128);
+  y.fillStyle = '#9ff6ff'; for (var w = 0; w < 14; w++) y.fillRect(20 + w * 15, 40, 6, 4);
+  var hullTex = new THREE.CanvasTexture(hc), lightTex = new THREE.CanvasTexture(lc);
+  hullTex.anisotropy = lightTex.anisotropy = 4;
+  var hull = new THREE.MeshStandardMaterial({ map: hullTex, emissiveMap: lightTex, emissive: new THREE.Color(0x9ff6ff), emissiveIntensity: 1.3, metalness: 0.6, roughness: 0.35 });
+  var dark = new THREE.MeshStandardMaterial({ color: 0x2c3236, metalness: 0.5, roughness: 0.5 });
+  var body = new THREE.LatheGeometry([[0, -1.15], [0.28, -1.1], [0.34, -0.8], [0.36, 0], [0.32, 0.6], [0.18, 1.2], [0, 1.6]].map(function (a) { return new THREE.Vector2(a[0], a[1]); }), 12);
+  body.rotateX(Math.PI / 2);
+  var ws = new THREE.Shape(); ws.moveTo(0, 0.3); ws.lineTo(1.4, -0.6); ws.lineTo(1.4, -0.85); ws.lineTo(0, -0.7); ws.lineTo(0, 0.3);
+  var wing = new THREE.ExtrudeGeometry(ws, { depth: 0.05, bevelEnabled: false }); wing.rotateX(Math.PI / 2); wing.translate(0, 0.02, 0);
+  var fs = new THREE.Shape(); fs.moveTo(0, 0); fs.lineTo(0.55, 0); fs.lineTo(0.15, 0.55); fs.lineTo(0, 0);
+  var fin = new THREE.ExtrudeGeometry(fs, { depth: 0.04, bevelEnabled: false }); fin.rotateY(-Math.PI / 2); fin.translate(0.02, 0.2, -1.1);
+  var eng = new THREE.CylinderGeometry(0.11, 0.13, 0.5, 10); eng.rotateX(Math.PI / 2);
+  var tc = document.createElement('canvas'); tc.width = 16; tc.height = 128;
+  var z = tc.getContext('2d'), tg = z.createLinearGradient(0, 0, 0, 128);
+  tg.addColorStop(0, 'rgba(255,255,255,0)'); tg.addColorStop(1, 'rgba(255,255,255,1)'); z.fillStyle = tg; z.fillRect(0, 0, 16, 128);
+  var trailTex = new THREE.CanvasTexture(tc);
+  var trail = new THREE.ConeGeometry(0.11, 1.6, 10, 1, true); trail.rotateX(-Math.PI / 2); trail.translate(0, 0, -2.15);
+  var glowTex = glowTexture('rgba(255,255,255,1)', 'rgba(255,190,120,0.6)');
+  return { hull: hull, dark: dark, body: body, wing: wing, fin: fin, eng: eng, trail: trail, trailTex: trailTex, glowTex: glowTex };
+})();
+function makeShip(scale) {
+  var g = new THREE.Group(), K = shipKit;
+  g.add(new THREE.Mesh(K.body, K.hull));
+  var wr = new THREE.Mesh(K.wing, K.hull), wl = new THREE.Mesh(K.wing, K.hull); wl.scale.x = -1; g.add(wr); g.add(wl);
+  g.add(new THREE.Mesh(K.fin, K.dark));
+  [-0.24, 0.24].forEach(function (ex) {
+    var e = new THREE.Mesh(K.eng, K.dark); e.position.set(ex, -0.02, -1.0); g.add(e);
+    var tr = new THREE.Mesh(K.trail, new THREE.MeshBasicMaterial({ map: K.trailTex, color: 0xffb070, transparent: true, opacity: 0.7, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
+    tr.position.x = ex; tr.position.y = -0.02; g.add(tr);
+    var gl = new THREE.Sprite(new THREE.SpriteMaterial({ map: K.glowTex, color: 0xffc890, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false }));
+    gl.position.set(ex, -0.02, -1.3); gl.scale.set(0.7, 0.7, 1); g.add(gl); g.userData.glows = (g.userData.glows || []).concat(gl);
+  });
+  g.scale.setScalar(scale);
+  return g;
+}
+function makeCityDirs(r) {
+  var out = [];
+  while (out.length < 6) {
+    var y = (r() - 0.5) * 1.1, th = r() * Math.PI * 2, c = Math.sqrt(1 - y * y), v = new THREE.Vector3(Math.cos(th) * c, y, Math.sin(th) * c);
+    if (out.every(function (o) { return o.dot(v) < Math.cos(0.75); })) out.push(v);
+  }
+  return out;
+}
 function rgbaOf(hex, a) { var c = hexToRgb(hex); return 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',' + a + ')'; }
 // w = 0: planeta adormecido (desafio a vir) · w = 1: desperto (desafio liberado)
 function setWake(b, w) {
-  var u = b.mesh.material.uniforms; u.uDim.value = 0.62 + 0.38 * w; u.uEm.value = 0.3 + 0.7 * w;
+  var u = b.mesh.material.uniforms; u.uDim.value = 0.62 + 0.38 * w; u.uEm.value = 0.55 + 0.45 * w;
   b.wakeables.forEach(function (x) {
     if (x.kind === 'atmo') x.mat.uniforms.uColor.value.copy(x.base).multiplyScalar(0.35 + 0.65 * w);
     else if (x.kind === 'std') { x.mat.color.copy(x.base).multiplyScalar(0.42 + 0.58 * w); x.mat.emissiveIntensity = x.em * (0.25 + 0.75 * w); }
@@ -1411,11 +1611,15 @@ function makePlanet(b) {
   var ol = orbitLine(ORBITS[i], TILTS[i], i); scene.add(ol); b.orbitLine = ol;
 
   var extra = new THREE.Group();
+  var uni = { uTime: { value: 0 }, uDim: { value: 1 }, uEm: { value: 1 }, uRim: { value: new THREE.Color(b.color) }, uPixAng: PIX_ANG, uRadius: { value: R }, uBumpK: { value: { dados: 2.0, gente: 1.6, produto: 2.2, comercial: 2.0 }[b.key] || 1.0 }, uOldBump: { value: (b.key === 'dados' || b.key === 'gente') ? 1 : 0 } };
+  if (b.key === 'dev') uni.uGlyphs = { value: glyphTex };
+  var cityDirs = null;
+  if (b.key === 'comercial') { cityDirs = makeCityDirs(rng(4242)); uni.uCities = { value: cityDirs }; }
   var mat = new THREE.ShaderMaterial({
-    uniforms: { uTime: { value: 0 }, uDim: { value: 1 }, uEm: { value: 1 }, uRim: { value: new THREE.Color(b.color) } },
+    uniforms: uni,
     vertexShader: PLANET_VS,
     fragmentShader: PLANET_FS_HEAD + SURFACES[b.key] + PLANET_FS_MAIN,
-    extensions: { derivatives: true }
+    extensions: { derivatives: true, shaderTextureLOD: b.key === 'dev' }
   });
   var mesh = new THREE.Mesh(new THREE.SphereGeometry(R, 128, 96), mat);
   mesh.rotation.z = 0.35; holder.add(mesh); holder.add(extra);
@@ -1459,15 +1663,58 @@ function makePlanet(b) {
     animators.push(function (t) { w1.rotation.set(t * 0.15, t * 0.2, 0); w2.rotation.set(-t * 0.1, -t * 0.12, t * 0.05); });
   }
   if (b.key === 'comercial') {
-    for (var q = 0; q < 3; q++) (function (q) {
-      var rt = new THREE.Group(); rt.rotation.set(0.5 + q * 0.75, q * 1.1, 0.3 * q); extra.add(rt);
-      var rr = R * (1.45 + q * 0.18);
-      var ln = orbitLine(rr, 0); ln.material.color.set(0xf2c14e); ln.material.opacity = 0.35; rt.add(ln);
-      var cargo = new THREE.Sprite(new THREE.SpriteMaterial({ map: dotTex, color: 0xffe08a, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
-      cargo.scale.set(0.42, 0.42, 1); rt.add(cargo);
-      var sp = 0.7 + q * 0.25, ph = q * 2;
-      animators.push(function (t) { var a = ph + t * sp * (q % 2 ? -1 : 1); cargo.position.set(Math.cos(a) * rr, 0, Math.sin(a) * rr); });
-    })(q);
+    // cidades: uma torre principal, uma gêmea, torres menores e prédios baixos em volta
+    var spireMat = new THREE.MeshStandardMaterial({ color: 0x3b1d12, roughness: 0.6, metalness: 0.35, emissive: new THREE.Color(0xffb36b), emissiveMap: windowTex, emissiveIntensity: 1.25, flatShading: true });
+    var bldMat = new THREE.MeshStandardMaterial({ color: 0x2a160d, roughness: 0.85, metalness: 0.1, emissive: new THREE.Color(0xffa95a), emissiveMap: windowTex, emissiveIntensity: 0.9 });
+    var cr = rng(77), boxes = new THREE.InstancedMesh(BOX_GEO, bldMat, cityDirs.length * 46), bi = 0;
+    var m4 = new THREE.Matrix4(), q4 = new THREE.Quaternion(), sc4 = new THREE.Vector3(), p4 = new THREE.Vector3(), rq = new THREE.Quaternion();
+    cityDirs.forEach(function (c) {
+      var H = R * (0.3 + cr() * 0.12);
+      [[0, 0, 1], [0.022, 0.012, 0.74]].concat(Array.apply(null, Array(4 + Math.floor(cr() * 4))).map(function () {
+        return [(cr() - 0.5) * 0.12, (cr() - 0.5) * 0.12, 0.22 + cr() * 0.3];
+      })).forEach(function (sd) {
+        var sp = new THREE.Mesh(SPIRE_GEO, spireMat), hh = H * sd[2];
+        plantOn(sp, tangentOffset(c, sd[0], sd[1]), R * 0.995, cr() * 6.28);
+        sp.scale.set(hh * 0.6, hh, hh * 0.6); mesh.add(sp);
+      });
+      for (var k = 0; k < 46; k++) {
+        var dir = tangentOffset(c, (cr() - 0.5) * 0.26, (cr() - 0.5) * 0.26);
+        p4.copy(dir).multiplyScalar(R * 0.995);
+        q4.setFromUnitVectors(UP, dir); rq.setFromAxisAngle(UP, cr() * 6.28); q4.multiply(rq);
+        var bw = R * (0.007 + cr() * 0.012); sc4.set(bw, R * (0.006 + cr() * 0.03), bw * (0.7 + cr() * 0.6));
+        m4.compose(p4, q4, sc4); boxes.setMatrixAt(bi++, m4);
+      }
+    });
+    boxes.instanceMatrix.needsUpdate = true; mesh.add(boxes);
+    // naves que voam de uma cidade para outra, subindo e descendo em arco
+    var ships = [], last = 0, fwd = new THREE.Vector3(), nxt = new THREE.Vector3(), upv = new THREE.Vector3(), rgt = new THREE.Vector3(), mb = new THREE.Matrix4(), tmpD = new THREE.Vector3();
+    function nextLeg(s) {
+      s.from = s.to; do { s.to = Math.floor(cr() * cityDirs.length); } while (s.to === s.from);
+      var om = Math.acos(Math.max(-1, Math.min(1, cityDirs[s.from].dot(cityDirs[s.to]))));
+      s.t = 0; s.dur = 2.5 + om * (5 + cr() * 3); s.peak = 0.1 + cr() * 0.1;
+    }
+    function shipAt(s, u, out) {
+      var e = u * u * (3 - 2 * u);
+      slerpDir(cityDirs[s.from], cityDirs[s.to], e, tmpD);
+      return out.copy(tmpD).multiplyScalar(R * (1.04 + s.peak * Math.sin(Math.PI * u)));
+    }
+    for (var si = 0; si < 8; si++) {
+      var sh = { g: makeShip(R * 0.05), to: Math.floor(cr() * cityDirs.length) };
+      nextLeg(sh); sh.t = cr() * sh.dur; mesh.add(sh.g); ships.push(sh);
+    }
+    animators.push(function (t) {
+      var dt = Math.min(0.05, Math.max(0, t - last)); last = t;
+      ships.forEach(function (s) {
+        s.t += dt; if (s.t >= s.dur) nextLeg(s);
+        var u = s.t / s.dur;
+        shipAt(s, u, s.g.position); shipAt(s, Math.min(1, u + 0.01), nxt);
+        fwd.subVectors(nxt, s.g.position); if (fwd.lengthSq() < 1e-10) return; fwd.normalize();
+        upv.copy(s.g.position).normalize(); rgt.crossVectors(upv, fwd).normalize(); upv.crossVectors(fwd, rgt);
+        mb.makeBasis(rgt, upv, fwd); s.g.quaternion.setFromRotationMatrix(mb);
+        var fl = 0.8 + 0.2 * Math.sin(t * 30 + s.dur * 7);
+        s.g.userData.glows.forEach(function (gl) { gl.scale.set(0.7 * fl, 0.7 * fl, 1); });
+      });
+    });
   }
 
   var hit = new THREE.Mesh(new THREE.SphereGeometry(Math.max(R * 2.1, 3), 12, 12), new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false }));
@@ -1778,7 +2025,7 @@ function focusGoal(key, outPos, outTarget) {
     var toSun = p.clone().multiplyScalar(-1).normalize();
     var side = new THREE.Vector3().crossVectors(toSun, up).normalize();
     var d = R * (isMobile() ? 13 : 7.2);
-    outPos.copy(p).addScaledVector(toSun, d * 0.72).addScaledVector(side, d * 0.55).addScaledVector(up, d * 0.32);
+    outPos.copy(p).addScaledVector(toSun, d * 0.55).addScaledVector(side, d * 0.5).addScaledVector(up, d * 0.68);
   }
   outTarget.copy(p);
   // desloca o alvo para o planeta não ficar atrás do painel
@@ -1787,7 +2034,9 @@ function focusGoal(key, outPos, outTarget) {
   if (isMobile()) outTarget.addScaledVector(up, -R * (key === 'sol' ? 2.2 : 3.6));
   else outTarget.addScaledVector(right, R * (key === 'sol' ? 2.0 : 2.6));
   // com a câmera do Sol mais alta, o deslocamento lateral também empurra o Sol para baixo; abaixar o alvo compensa
+  // com a câmera mais alta, o deslocamento lateral também empurra o astro para baixo; abaixar o alvo compensa
   if (key === 'sol') outTarget.y -= SUN_R * (isMobile() ? 1.1 : 0.95);
+  else outTarget.y -= R * (isMobile() ? 0.6 : 1.0);
 }
 
 /* =========================================================
@@ -1870,7 +2119,7 @@ function flash() {
 }
 function endWarp() {
   state.mode = 'free'; controls.target.set(0, 0, 0); controls.enabled = true;
-  camera.fov = 45; camera.updateProjectionMatrix();
+  camera.fov = 45; camera.updateProjectionMatrix(); updatePixAng();
   camera.position.copy(overviewPos()); camera.lookAt(0, 0, 0);
   warp.lines.visible = false; warp.mat.opacity = 0;
   document.body.classList.add('is-live');
@@ -2060,7 +2309,7 @@ function tick() {
     var env = T < 0.9 ? (T / 0.9) * (T / 0.9) : (T < 2.1 ? 1 : Math.max(0, 1 - (T - 2.1) / 0.5));
     var se = env * env * (3 - 2 * env);
     updateWarp(se * 950, Math.min(1, se * 1.4), dt);
-    camera.fov = 45 + 20 * se; camera.updateProjectionMatrix();
+    camera.fov = 45 + 20 * se; camera.updateProjectionMatrix(); updatePixAng();
     var kk = Math.min(1, T / TOTAL), ee = kk < 0.5 ? 4 * kk * kk * kk : 1 - Math.pow(-2 * kk + 2, 3) / 2;
     camera.position.lerpVectors(warpStart, overviewPos(), ee);
     lookTmp.lerpVectors(WARP_LOOK, ORIGIN, ee); camera.lookAt(lookTmp);
@@ -2109,7 +2358,7 @@ function tick() {
 window.addEventListener('resize', function () {
   var w = window.innerWidth, h = window.innerHeight;
   camera.aspect = w / h; camera.updateProjectionMatrix();
-  renderer.setSize(w, h); composer.setSize(w, h); starMat.uniforms.uPR.value = comet.mat.uniforms.uPR.value = renderer.getPixelRatio(); bloom.setSize(w / 2, h / 2);
+  updatePixAng(); renderer.setSize(w, h); if (composerMSAA) composer.setSize(w * renderer.getPixelRatio(), h * renderer.getPixelRatio()); else composer.setSize(w, h); starMat.uniforms.uPR.value = comet.mat.uniforms.uPR.value = renderer.getPixelRatio(); bloom.setSize(w / 2, h / 2);
 });
 requestAnimationFrame(tick);
 })();

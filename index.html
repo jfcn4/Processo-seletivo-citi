@@ -22,6 +22,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600;800&family=Manrope:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="entregas/dados.css">
+<link rel="stylesheet" href="entregas/marketing.css">
 <style>
 /* Layout: canvas 3D em tela cheia; HUD fixo nas bordas; painel lateral (desktop) / folha inferior (celular). Visual único, escuro. */
 :root {
@@ -360,6 +362,9 @@ body.is-focused #con-label { opacity: 0; }
 <div id="con-label" aria-hidden="true">Constelação CITi</div>
 <div id="toast" role="status" aria-live="polite"></div>
 
+<script src="entregas/dados-data.js"></script>
+<script src="entregas/dados.js"></script>
+<script src="entregas/marketing.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
@@ -1015,6 +1020,7 @@ void surface(vec3 p, out vec3 albedo, out float h, out float spec, out vec3 emit
 }`,
   // Marketing: gigante gasoso vibrante, com faixas e uma grande tempestade
   marketing: `
+uniform vec3 uStorm;   // brilho da tempestade, na cor do setor que vence a balança de pesos
 void surface(vec3 p, out vec3 albedo, out float h, out float spec, out vec3 emit, out vec3 night, out float bump){
   float tt = uTime * 0.012;
   vec3 q = p * 2.2;
@@ -1042,7 +1048,7 @@ void surface(vec3 p, out vec3 albedo, out float h, out float spec, out vec3 emit
   vec3 stormCol = mix(vec3(1.0, 0.93, 0.84), vec3(0.93, 0.26, 0.42), smoothstep(0.0, 0.17, sd) * (0.6 + 0.4 * spiral));
   albedo = mix(albedo, stormCol, storm);
   h = 0.0; bump = 0.0; spec = 0.06;
-  emit = vec3(0.0); night = vec3(0.0);
+  emit = uStorm * storm * (0.75 + 0.25 * spiral); night = vec3(0.0);
 }`,
   // Gente e Gestão: mundo habitável lilás, com nuvens e luzes de cidades no lado da noite
   gente: `
@@ -1722,6 +1728,7 @@ function makePlanet(b) {
   var extra = new THREE.Group();
   var uni = { uTime: { value: 0 }, uDim: { value: 1 }, uEm: { value: 1 }, uRim: { value: new THREE.Color(b.color) }, uPixAng: PIX_ANG, uRadius: { value: R }, uBumpK: { value: { dados: 2.0, gente: 1.6, produto: 2.2, comercial: 2.0 }[b.key] || 1.0 }, uOldBump: { value: (b.key === 'dados' || b.key === 'gente') ? 1 : 0 } };
   if (b.key === 'dev') uni.uGlyphs = { value: glyphTex };
+  if (b.key === 'marketing') uni.uStorm = { value: new THREE.Vector3(0, 0, 0) };
   var cityDirs = null;
   if (b.key === 'comercial') { cityDirs = makeCityDirs(rng(4242)); uni.uCities = { value: cityDirs }; }
   var mat = new THREE.ShaderMaterial({
@@ -1925,6 +1932,8 @@ function makePlanet(b) {
   b.wake = b.pending ? 0 : 1; setWake(b, b.wake);
 }
 BODIES.forEach(function (b) { if (!b.sun) makePlanet(b); });
+// a balança de pesos do Marketing (entregas/marketing.js) acende a tempestade do planeta
+window.CITI_STORM = function (r, g, b) { planets.marketing.mesh.material.uniforms.uStorm.value.set(r, g, b); };
 
 // Despertar: planetas liberados que este navegador ainda não viu acender.
 // Abrir o link com #despertar no final força a animação de novo.
@@ -2121,6 +2130,8 @@ function renderPanel(b) {
     note.appendChild(el('strong', null, 'Este desafio ainda não foi liberado.'));
     note.appendChild(el('span', null, 'Quando o processo seletivo liberar o desafio de ' + b.name + ', a entrega aparece aqui e o planeta acende.'));
     pBody.appendChild(section('Status', [note]));
+  } else if (window.CITI_ENTREGAS && window.CITI_ENTREGAS[b.key]) {
+    window.CITI_ENTREGAS[b.key].painel(pBody, b);   // entrega real do planeta (arquivo em entregas/)
   } else {
     pBody.appendChild(section('O desafio', [el('p', 'fill', '[Resumo do enunciado de ' + b.name + ' em duas linhas.]')]));
     var f = el('div', 'file');

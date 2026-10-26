@@ -125,12 +125,24 @@
       '<div class="dx-body"><div class="dx-wrap" id="dx-content"></div></div>';
     body = root.querySelector('#dx-content');
     // ao rolar para baixo, o cabeçalho encolhe (sem sumir); volta ao tamanho normal perto do topo
-    var scroller = root.querySelector('.dx-body');
+    var scroller = root.querySelector('.dx-body'), topEl = root.querySelector('.dx-top');
     scroller.addEventListener('scroll', function () {
       var y = scroller.scrollTop, compact = root.classList.contains('is-compact');
       if (!compact && y > 60) root.classList.add('is-compact');
       else if (compact && y < 20) root.classList.remove('is-compact');
     }, { passive: true });
+    // mede a altura do cabeçalho aberto (sem animação) para reservar esse espaço no topo do conteúdo
+    root.measureHead = function () {
+      if (root.hidden) return;
+      var was = root.classList.contains('is-compact');
+      root.classList.add('dx-notrans'); root.classList.remove('is-compact');
+      root.style.setProperty('--dx-head', topEl.offsetHeight + 'px');
+      topEl.style.right = (scroller.offsetWidth - scroller.clientWidth) + 'px';   // não cobre a barra de rolagem
+      if (was) root.classList.add('is-compact');
+      void topEl.offsetHeight; root.classList.remove('dx-notrans');
+    };
+    window.addEventListener('resize', root.measureHead);
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(root.measureHead);
     root.querySelector('[data-close]').addEventListener('click', fechar);
     root.querySelectorAll('[data-stage]').forEach(function (b) { b.addEventListener('click', function () { setStage(+b.dataset.stage); }); });
     document.body.appendChild(root);
@@ -164,6 +176,7 @@
     body.innerHTML = '';
     if (n === 1) etapa1(); else etapa2();
     root.querySelector('.dx-body').scrollTop = 0;
+    root.classList.remove('is-compact');
   }
 
   function subtabs(items, current, onPick) {
@@ -505,6 +518,7 @@
     setStage(etapa || S.stage || 1);
     requestAnimationFrame(function () { root.classList.add('is-open'); });
     root.querySelector('[data-close]').focus({ preventScroll: true });
+    root.measureHead();
   }
   function fechar() {
     if (!root || root.hidden) return;

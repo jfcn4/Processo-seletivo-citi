@@ -223,6 +223,25 @@
     root.querySelector('[data-close]').addEventListener('click', fechar);
     root.querySelectorAll('[data-tab]').forEach(function (b) { b.addEventListener('click', function () { setAba(b.dataset.tab); }); });
     document.body.appendChild(root);
+    // ao rolar para baixo, o cabeçalho encolhe (sem sumir), como na entrega de Dados
+    var scroller = root.querySelector('.mk-body'), topEl = root.querySelector('.mk-top');
+    scroller.addEventListener('scroll', function () {
+      var y = scroller.scrollTop, compact = root.classList.contains('is-compact');
+      if (!compact && y > 60) root.classList.add('is-compact');
+      else if (compact && y < 20) root.classList.remove('is-compact');
+    }, { passive: true });
+    // mede o cabeçalho aberto (sem animação) para reservar esse espaço no topo do conteúdo
+    root.measureHead = function () {
+      if (root.hidden) return;
+      var was = root.classList.contains('is-compact');
+      root.classList.add('dv-notrans'); root.classList.remove('is-compact');
+      root.style.setProperty('--dv-head', topEl.offsetHeight + 'px');
+      topEl.style.right = (scroller.offsetWidth - scroller.clientWidth) + 'px';   // não cobre a barra de rolagem
+      if (was) root.classList.add('is-compact');
+      void topEl.offsetHeight; root.classList.remove('dv-notrans');
+    };
+    window.addEventListener('resize', root.measureHead);
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(root.measureHead);
     window.addEventListener('keydown', function (e) {
       if (root.hidden) return;
       if (e.key === 'Escape') { fechar(); e.stopImmediatePropagation(); }
@@ -250,6 +269,7 @@
     if (t === 'loja') abaLoja(); else if (t === 'api') abaApi(); else if (t === 'repo') abaRepo(); else abaRelatorio();
     var sc = root.querySelector('.mk-body');
     sc.scrollTop = 0;
+    root.classList.remove('is-compact');
     if (alvo) setTimeout(function () { var el = body.querySelector(alvo); if (el) el.scrollIntoView({ block: 'start', behavior: 'smooth' }); }, 60);
   }
 
@@ -497,6 +517,7 @@
     lastFocus = document.activeElement;
     root.hidden = false;
     setAba(t || aba, alvo);
+    root.measureHead();
     requestAnimationFrame(function () { root.classList.add('is-open'); });
     root.querySelector('[data-close]').focus({ preventScroll: true });
   }

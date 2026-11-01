@@ -24,6 +24,9 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600;800&family=Manrope:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
 <link rel="stylesheet" href="entregas/dados.css">
 <link rel="stylesheet" href="entregas/marketing.css">
+<link rel="stylesheet" href="entregas/dev.css">
+<link rel="stylesheet" href="entregas/gente.css">
+
 <style>
 /* Layout: canvas 3D em tela cheia; HUD fixo nas bordas; painel lateral (desktop) / folha inferior (celular). Visual único, escuro. */
 :root {
@@ -365,6 +368,10 @@ body.is-focused #con-label { opacity: 0; }
 <script src="entregas/dados-data.js"></script>
 <script src="entregas/dados.js"></script>
 <script src="entregas/marketing.js"></script>
+<script src="entregas/dev/api-simulada.js"></script>
+<script src="entregas/dev-data.js"></script>
+<script src="entregas/dev.js"></script>
+<script src="entregas/gente.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
@@ -708,10 +715,10 @@ var BODIES = [
   { key: 'marketing', name: 'Marketing', status: 'liberado', color: '#ff7a8a', tag: 'Fazer a mensagem chegar em quem importa.',
     symbol: 'O planeta mais quente e vibrante do sistema. Chamar atenção é o trabalho da área.',
     file: ['PNG', 'desafio-marketing — peças'] },
-  { key: 'dev', name: 'Dev', color: '#7dff9e', tag: 'Construir o que o cliente imagina.',
+  { key: 'dev', name: 'Dev', status: 'liberado', color: '#7dff9e', tag: 'Construir o que o cliente imagina.',
     symbol: 'A superfície é uma placa de circuito. Pulsos de energia correm pelas trilhas, como código em execução.',
     file: ['ZIP', 'desafio-dev — repositório'] },
-  { key: 'gente', name: 'Gente e Gestão', color: '#b9a6ff', tag: 'Cuidar de quem faz a empresa acontecer.',
+  { key: 'gente', name: 'Gente e Gestão', status: 'liberado', color: '#b9a6ff', tag: 'Cuidar de quem faz a empresa acontecer.',
     symbol: 'Quatro luas orbitam o planeta e, no lado da noite, as cidades acendem. Uma empresa é feita de pessoas que se movem juntas.',
     file: ['PDF', 'desafio-gente-e-gestao.pdf'] },
   { key: 'produto', name: 'Produto', color: '#7fb8ff', tag: 'Descobrir o problema certo antes da solução.',
@@ -2110,6 +2117,16 @@ function renderPanel(b) {
   else chips.appendChild(el('span', 'chip is-status', 'Desafio liberado'));
   pBody.appendChild(chips);
 
+  // atalho logo no topo: abre a entrega completa sem precisar rolar o painel
+  var ent = !b.sun && !b.pending && window.CITI_ENTREGAS && window.CITI_ENTREGAS[b.key];
+  if (ent && ent.abrir) {
+    var topo = el('button', 'mk-expand');
+    topo.type = 'button'; topo.style.marginBottom = '8px';
+    topo.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M9.5 2.5h4v4M6.5 13.5h-4v-4M13.5 2.5l-5 5M2.5 13.5l5-5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>Abrir entrega completa';
+    topo.addEventListener('click', function () { ent.abrir(); });
+    pBody.appendChild(topo);
+  }
+
   if (b.sun) {
     var v = el('div', 'video');
     var vid = document.createElement('video');
@@ -2451,6 +2468,8 @@ var clock = new THREE.Clock(), goalPos = new THREE.Vector3(), goalTarget = new T
 function damp(k, dt) { return 1 - Math.exp(-k * dt); }
 
 function tick() {
+  // com uma entrega aberta em tela cheia, o sistema solar fica escondido atrás dela: pausa o 3D e poupa o computador
+  if (document.querySelector('#dx:not([hidden]), #mk:not([hidden]), #dv:not([hidden]), #gg:not([hidden])')) { clock.getDelta(); requestAnimationFrame(tick); return; }
   var dt = Math.min(clock.getDelta(), 0.05), t = clock.elapsedTime;
   state.timeScale += ((state.focus ? 0.04 : 1) - state.timeScale) * damp(2.5, dt);
   // as órbitas ficam paradas na tela de início, para a posição na chegada ser sempre a mesma
@@ -2461,6 +2480,9 @@ function tick() {
   coronaA.scale.setScalar(SUN_R * 4.4 * pulse);
   coronaB.material.opacity = 0.42 + Math.sin(t * 0.9) * 0.08;
   sun.rotation.y = t * 0.04;
+  // o Sol também cresce um pouco com o cursor em cima, como os planetas
+  var ss = state.hover === 'sol' ? 1.08 : 1;
+  sunGroup.scale.lerp(tmpV.set(ss, ss, ss), damp(8, dt));
 
   BODIES.forEach(function (b) {
     if (b.sun) return;

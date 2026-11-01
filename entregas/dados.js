@@ -540,9 +540,6 @@
     s1.addEventListener('click', function () { abrir(1); });
     s2.addEventListener('click', function () { abrir(2); });
     e.appendChild(s1); e.appendChild(s2);
-    var x = node('<button class="dx-expand" type="button"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M9.5 2.5h4v4M6.5 13.5h-4v-4M13.5 2.5l-5 5M2.5 13.5l5-5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>Abrir entrega completa</button>');
-    x.addEventListener('click', function () { abrir(1); });
-    container.appendChild(x);
   }
 
   window.CITI_ENTREGAS = window.CITI_ENTREGAS || {};

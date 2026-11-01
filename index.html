@@ -405,6 +405,9 @@ var isMobile = function () { return window.innerWidth <= 720; };
    - sinos: notas soltas da escala pentatônica, em intervalos aleatórios
    ========================================================= */
 var Sound = (function () {
+  // celular: áudio mais leve, para não competir com a cena 3D pelo processador
+  var MOBILE = window.matchMedia('(pointer: coarse)').matches || window.innerWidth <= 720;
+  var LOOKAHEAD = 0.04;
   var AC = window.AudioContext || window.webkitAudioContext;
   var ctx = null, master, amb, bed, humBus, hum = null, windOut = null, focused = false, whiteBuf = null, brownBuf = null, sfx, reverb, on = true, started = false, ducked = false, ambientOn = false, pad = null, lastChord = -1;
   try { if (localStorage.getItem('citi-som') === 'off') on = false; } catch (e) {}
@@ -416,7 +419,8 @@ var Sound = (function () {
   ];
   var SCALE = [293.66, 329.63, 369.99, 440.00, 493.88, 587.33, 659.25, 739.99, 880.00];
   var NOTE = { sol: 587.33, dados: 659.25, dev: 739.99, marketing: 880.00, gente: 987.77, produto: 1174.66, comercial: 1318.51 };
-  function now() { return ctx.currentTime; }
+  // agenda tudo um pouco à frente: se o aparelho atrasar, nada é marcado no passado (o que vira estalo)
+  function now() { return ctx.currentTime + LOOKAHEAD; }
   function panner(v) { if (!ctx.createStereoPanner) return null; var p = ctx.createStereoPanner(); p.pan.value = v; return p; }
   function noiseBuffer(sec, brown) {
     var len = Math.floor(ctx.sampleRate * sec), buf = ctx.createBuffer(1, len, ctx.sampleRate), d = buf.getChannelData(0), last = 0, i;
@@ -432,13 +436,27 @@ var Sound = (function () {
   function init() {
     if (ctx) return true;
     if (!AC) return false;
-    try { ctx = new AC(); } catch (e) { ctx = null; return false; }
+    // 'playback' = buffer de áudio maior: um pouco mais de latência, mas aguenta picos de processamento sem falhar
+    try { ctx = new AC({ latencyHint: 'playback' }); } catch (e) { try { ctx = new AC(); } catch (e2) { ctx = null; return false; } }
     master = ctx.createGain(); master.gain.value = 0;
     var comp = ctx.createDynamicsCompressor();
     comp.threshold.value = -20; comp.knee.value = 18; comp.ratio.value = 3; comp.attack.value = 0.01; comp.release.value = 0.4;
     master.connect(comp); comp.connect(ctx.destination);
-    reverb = ctx.createConvolver(); reverb.buffer = impulse(6, 2.8);
-    var wet = ctx.createGain(); wet.gain.value = 0.8; reverb.connect(wet); wet.connect(master);
+    var wet = ctx.createGain(); wet.gain.value = 0.8; wet.connect(master);
+    if (MOBILE) {
+      // celular: reverberação por linhas de atraso (ecos que se realimentam, abafados a cada volta).
+      // Soa parecido com a convolução e custa uma fração dela.
+      reverb = ctx.createGain(); reverb.gain.value = 0.5;
+      [[0.137, -0.6], [0.211, 0.6], [0.293, -0.3], [0.379, 0.3]].forEach(function (d) {
+        var dl = ctx.createDelay(1), fb = ctx.createGain(), lp = ctx.createBiquadFilter(), out = ctx.createGain();
+        dl.delayTime.value = d[0]; fb.gain.value = 0.58; lp.type = 'lowpass'; lp.frequency.value = 2200; out.gain.value = 0.55;
+        reverb.connect(dl); dl.connect(lp); lp.connect(fb); fb.connect(dl);
+        var p = panner(d[1]); if (p) { lp.connect(out); out.connect(p); p.connect(wet); } else { lp.connect(out); out.connect(wet); }
+      });
+    } else {
+      reverb = ctx.createConvolver(); reverb.buffer = impulse(3, 2.2);   // eco de 3 s (antes, 6 s: a parte mais cara do áudio)
+      reverb.connect(wet);
+    }
     amb = ctx.createGain(); amb.gain.value = 0; amb.connect(master);
     // amb (abaixa com o vídeo) recebe: bed (trilha de fundo) + humBus (som do planeta em foco)
     bed = ctx.createGain(); bed.gain.value = 1; bed.connect(amb);
@@ -463,7 +481,7 @@ var Sound = (function () {
       var base = 0.042 * (i === 0 ? 0.85 : 1), vg = ctx.createGain(); vg.gain.value = base * 0.6;
       var trem = ctx.createOscillator(); trem.frequency.value = 1 / (9 + Math.random() * 22);
       var tg = ctx.createGain(); tg.gain.value = base * 0.4; trem.connect(tg); tg.connect(vg.gain); trem.start(t); nodes.push(trem);
-      [['sine', -4, 1], ['triangle', 5, 0.35]].forEach(function (o) {
+      (MOBILE ? [['sine', -4, 1]] : [['sine', -4, 1], ['triangle', 5, 0.35]]).forEach(function (o) {
         var osc = ctx.createOscillator(); osc.type = o[0]; osc.frequency.value = f; osc.detune.value = o[1] + (Math.random() - 0.5) * 4;
         var og = ctx.createGain(); og.gain.value = o[2]; osc.connect(og); og.connect(vg); osc.start(t); nodes.push(osc);
       });

@@ -115,12 +115,13 @@
       '<header class="dx-top">' +
         '<div class="dx-top-row">' +
           '<div><div class="dx-eyebrow">Dados · Órbita 1 · Entrega</div><h2 class="dx-title" id="dx-title">Do dado bagunçado ao primeiro assistente</h2></div>' +
-          '<div class="dx-top-actions">' + links + '<button class="dx-btn" type="button" data-close>Voltar ao planeta ✕</button></div>' +
+          '<div class="dx-top-actions">' + (links ? '<span class="dx-links">' + links + '</span>' : '') + '<button class="dx-btn" type="button" data-close>Voltar ao planeta ✕</button></div>' +
         '</div>' +
         '<div class="dx-stages" role="tablist" aria-label="Etapas do desafio">' +
           '<button class="dx-stage-tab" type="button" role="tab" data-stage="1"><span class="dx-n">Etapa 1</span><strong>Do dado bagunçado ao dado útil</strong><span class="dx-t">Google Sheets · pipeline em Python</span></button>' +
           '<button class="dx-stage-tab is-s2" type="button" role="tab" data-stage="2"><span class="dx-n">Etapa 2</span><strong>Primeiro assistente</strong><span class="dx-t">Gemini Gems · manual de manutenção</span></button>' +
         '</div>' +
+        '<div class="dx-subtabs" role="tablist" aria-label="Partes da etapa"></div>' +
       '</header>' +
       '<div class="dx-body"><div class="dx-wrap" id="dx-content"></div></div>';
     body = root.querySelector('#dx-content');
@@ -137,6 +138,7 @@
       var was = root.classList.contains('is-compact');
       root.classList.add('dx-notrans'); root.classList.remove('is-compact');
       root.style.setProperty('--dx-head', topEl.offsetHeight + 'px');
+      root.classList.add('is-compact'); root.headCompact = topEl.offsetHeight; root.classList.remove('is-compact');
       topEl.style.right = (scroller.offsetWidth - scroller.clientWidth) + 'px';   // não cobre a barra de rolagem
       if (was) root.classList.add('is-compact');
       void topEl.offsetHeight; root.classList.remove('dx-notrans');
@@ -177,18 +179,28 @@
     if (n === 1) etapa1(); else etapa2();
     root.querySelector('.dx-body').scrollTop = 0;
     root.classList.remove('is-compact');
+    if (root.measureHead) root.measureHead();
   }
 
-  function subtabs(items, current, onPick) {
-    var bar = node('<div class="dx-subtabs" role="tablist"></div>');
-    items.forEach(function (it) {
+  // sub-abas da etapa, no cabeçalho, logo abaixo dos botões de etapa
+  var SUBS = {
+    1: [['planilha', 'Planilha'], ['repo', 'Repositório'], ['decisoes', 'Decisões']],
+    2: [['testes', 'Testes'], ['instrucoes', 'Instruções do Gem'], ['historico', 'Histórico e observações']]
+  };
+  function subtabs(n, pane, render) {
+    var bar = root.querySelector('.dx-top .dx-subtabs'), key = n === 1 ? 'sub1' : 'sub2';
+    bar.innerHTML = '';
+    SUBS[n].forEach(function (it) {
       var b = node('<button class="dx-subtab" type="button" role="tab"></button>');
-      b.textContent = it[1]; b.setAttribute('aria-selected', it[0] === current ? 'true' : 'false');
-      b.addEventListener('click', function () { bar.querySelectorAll('.dx-subtab').forEach(function (x) { x.setAttribute('aria-selected', 'false'); }); b.setAttribute('aria-selected', 'true'); onPick(it[0]); });
+      b.textContent = it[1]; b.setAttribute('aria-selected', it[0] === S[key] ? 'true' : 'false');
+      b.addEventListener('click', function () {
+        bar.querySelectorAll('.dx-subtab').forEach(function (x) { x.setAttribute('aria-selected', x === b ? 'true' : 'false'); });
+        S[key] = it[0]; render(pane); scrollToPane(pane, true);
+      });
       bar.appendChild(b);
     });
-    return bar;
   }
+
 
   /* ================= ETAPA 1 ================= */
   function etapa1() {
@@ -218,12 +230,19 @@
     });
     body.appendChild(flow);
 
-    var pane = node('<div id="dx-pane1" style="display:grid;gap:14px"></div>');
-    body.appendChild(subtabs([['planilha', 'Planilha'], ['repo', 'Repositório'], ['decisoes', 'Decisões']], S.sub1, function (k) { S.sub1 = k; render1(pane); }));
+    var pane = node('<div id="dx-pane1" class="dx-pane" style="display:grid;gap:14px"></div>');
     body.appendChild(pane);
+    subtabs(1, pane, render1);
     render1(pane);
   }
-  function scrollToPane() { var p = document.getElementById('dx-pane1'); if (p) p.scrollIntoView({ block: 'start' }); }
+  // rola até o conteúdo da sub-aba, parando logo abaixo do cabeçalho (já compacto)
+  function scrollToPane(pane, smooth) {
+    pane = pane || document.getElementById('dx-pane1');
+    if (!pane) return;
+    var sc = root.querySelector('.dx-body');
+    var y = pane.getBoundingClientRect().top - sc.getBoundingClientRect().top + sc.scrollTop - (root.headCompact || 120) - 14;
+    sc.scrollTo({ top: Math.max(0, y), behavior: smooth && !window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'smooth' : 'auto' });
+  }
   function render1(pane) {
     pane.innerHTML = '';
     if (S.sub1 === 'planilha') pane.appendChild(sheet());
@@ -455,9 +474,9 @@
         'Como isso não está no manual, o assistente precisava dizer que não sabe, e disse, nas duas rodadas.</div>' +
       '</div>';
     body.appendChild(hero);
-    var pane = node('<div style="display:grid;gap:14px"></div>');
-    body.appendChild(subtabs([['testes', 'Testes'], ['instrucoes', 'Instruções do Gem'], ['historico', 'Histórico e observações']], S.sub2, function (k) { S.sub2 = k; render2(pane); }));
+    var pane = node('<div class="dx-pane" style="display:grid;gap:14px"></div>');
     body.appendChild(pane);
+    subtabs(2, pane, render2);
     render2(pane);
   }
   function render2(pane) {

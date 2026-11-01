@@ -338,7 +338,16 @@ body.is-sheet .nav button.is-press .dot { transform: scale(1.6); }
 body.is-sheet .hint { min-height: 1.5em; transition: color .2s; }
 body.is-sheet .hint.is-name { color: var(--ink); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; }
 body.is-sheet .label .l-meta { display: none; }
-body.is-sheet .label { padding: 10px 12px; }
+/* no celular o toque principal é no próprio astro (área de toque grande); o nome fica enxuto para não cobrir vizinhos */
+body.is-sheet .label { padding: 3px 6px; }
+
+/* Com uma entrega completa aberta, o que fica atrás dela (painel, HUD, nomes) some de vez.
+   O fundo da entrega é 96% opaco e com desfoque; ao rolar no celular o navegador redesenha esse
+   desfoque e, por um instante, o botão verde do painel "vazava" por trás. Opacidade 0 (e não
+   visibility) para o foco ainda poder voltar ao botão quando a entrega fecha. */
+body.has-overlay #panel, body.has-overlay .hud-top, body.has-overlay .hud-bottom, body.has-overlay #labels, body.has-overlay #con-label {
+  opacity: 0 !important; pointer-events: none !important;
+}
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-delay: 0s !important; transition-duration: .01ms !important; }
 }
@@ -826,12 +835,14 @@ scene.fog = new THREE.FogExp2(0x07140f, 0.0013);
 var camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 3000);
 // Visão geral. No computador: de frente e um pouco acima. No celular/tablet em pé a tela é estreita,
 // então a câmera sobe (quase de cima) e se afasta o bastante para a órbita mais externa caber na largura.
-var OVERVIEW_TILT = THREE.MathUtils.degToRad(20);   // ângulo a partir da vertical
+// 40° a partir da vertical: ainda cabe tudo na largura, mas inclinado o bastante para os astros
+// parecerem esferas com volume (de cima demais o sistema vira um desenho chapado)
+var OVERVIEW_TILT = THREE.MathUtils.degToRad(40);
 function overviewPos() {
   if (!isSheet()) return new THREE.Vector3(0, 48, 104);
   var aspect = window.innerWidth / window.innerHeight;
   var tanH = Math.tan(THREE.MathUtils.degToRad(22.5)) * Math.min(aspect, 1);
-  var fit = 70 * 1.1;                                // órbita de Comercial (65, excêntrica) + lua + folga de perspectiva
+  var fit = 70 * 1.16;                               // órbita de Comercial (65, excêntrica) + lua + folga: inclinada, a borda de perto parece maior
   var D = Math.max(185, fit / tanH);
   return new THREE.Vector3(0, D * Math.cos(OVERVIEW_TILT), D * Math.sin(OVERVIEW_TILT));
 }
@@ -2359,6 +2370,13 @@ function sheetMeasure() {
   panel.style.height = sheet.full + 'px';
   var title = pBody.querySelector('.p-title');
   var safeB = Math.max(0, parseFloat(getComputedStyle(panel).paddingBottom) - 28);
+  // a meia altura sempre deixa aparecer o começo da primeira seção (no Sol, o topo do vídeo):
+  // conteúdo cortado no meio é o que avisa que dá para puxar a folha para cima
+  var sec = pBody.querySelector('.p-sec');
+  if (sec) {
+    var need = sec.getBoundingClientRect().top - panel.getBoundingClientRect().top + panel.scrollTop + 120 + safeB;
+    sheet.half = Math.round(Math.min(sheet.full - 40, H * 0.62, Math.max(sheet.half, need)));
+  }
   if (title) {
     var pk = title.getBoundingClientRect().bottom - panel.getBoundingClientRect().top + panel.scrollTop + 18 + safeB;
     sheet.peek = Math.round(Math.max(120, Math.min(sheet.half - 60, pk)));
@@ -2382,6 +2400,15 @@ function sheetOpen() {
   sheetMeasure();
   // abre em meia tela; trocando de planeta com a folha já aberta, mantém a altura escolhida
   sheetSnap(wasOpen ? sheet.snap : 'half');
+  // na primeira vez, a folha dá um pulinho para cima e volta: mostra sem palavras que ela se arrasta
+  if (!wasOpen && !sheet.nudged && !REDUCED) {
+    sheet.nudged = true;
+    setTimeout(function () {
+      if (sheet.snap !== 'half' || sheet.dragging || !panel.classList.contains('is-open')) return;
+      sheetSet(sheet.half + 44);
+      setTimeout(function () { if (sheet.snap === 'half' && !sheet.dragging) sheetSet(sheet.half); }, 420);
+    }, 1100);
+  }
 }
 function sheetClose() {
   if (!sheet.on) return;
@@ -2495,12 +2522,27 @@ function focusGoal(key, outPos, outTarget) {
 /* =========================================================
    Interação: hover e clique
    ========================================================= */
-var raycaster = new THREE.Raycaster(), ndc = new THREE.Vector2(), down = null;
+var raycaster = new THREE.Raycaster(), ndc = new THREE.Vector2(), down = null, pickV = new THREE.Vector3(), pickS = new THREE.Vector3();
 function pick(e) {
   ndc.set((e.clientX / window.innerWidth) * 2 - 1, -(e.clientY / window.innerHeight) * 2 + 1);
   raycaster.setFromCamera(ndc, camera);
   var hits = raycaster.intersectObjects(pickables, false);
-  return hits.length ? hits[0].object.userData.key : null;
+  if (hits.length < 2) return hits.length ? hits[0].object.userData.key : null;
+  // As áreas de toque são maiores que os astros (e crescem junto na vista de longe), então perto do Sol
+  // elas se sobrepõem. Nesse caso vence o astro cujo disco visível está mais perto do dedo, não o que
+  // estiver mais perto da câmera: tocar em cima do Sol abre o Sol.
+  var W = window.innerWidth, H = window.innerHeight, pxU = H / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)));
+  var best = null, bestScore = Infinity, seen = {};
+  hits.forEach(function (h) {
+    var o = h.object, key = o.userData.key; if (seen[key]) return; seen[key] = true;
+    o.getWorldPosition(pickV); o.getWorldScale(pickS);
+    var dist = camera.position.distanceTo(pickV);
+    var rPx = (key === 'sol' ? SUN_R : planets[key].R) * pickS.x * pxU / dist;
+    pickV.project(camera);
+    var d = Math.hypot((pickV.x * 0.5 + 0.5) * W - e.clientX, (-pickV.y * 0.5 + 0.5) * H - e.clientY);
+    if (d - rPx < bestScore) { bestScore = d - rPx; best = key; }
+  });
+  return best;
 }
 function setHover(key) {
   if (state.hover === key) return;
@@ -2726,7 +2768,9 @@ function damp(k, dt) { return 1 - Math.exp(-k * dt); }
 function tick() {
   // com uma entrega aberta em tela cheia, o sistema solar fica escondido atrás dela: pausa o 3D e poupa o computador
   // (o modo lista também cobre a tela inteira)
-  if (!listEl.hidden || document.querySelector('#dx:not([hidden]), #mk:not([hidden]), #dv:not([hidden]), #gg:not([hidden])')) { clock.getDelta(); quality.acc = quality.n = 0; requestAnimationFrame(tick); return; }
+  var overlayOpen = !!document.querySelector('#dx:not([hidden]), #mk:not([hidden]), #dv:not([hidden]), #gg:not([hidden])');
+  document.body.classList.toggle('has-overlay', overlayOpen);
+  if (!listEl.hidden || overlayOpen) { clock.getDelta(); quality.acc = quality.n = 0; requestAnimationFrame(tick); return; }
   var rawDt = clock.getDelta(), dt = Math.min(rawDt, 0.05), t = clock.elapsedTime;
   state.timeScale += ((state.focus ? 0.04 : 1) - state.timeScale) * damp(2.5, dt);
   // as órbitas ficam paradas na tela de início, para a posição na chegada ser sempre a mesma
@@ -2815,22 +2859,33 @@ function tick() {
   var pxPerUnit = H / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)));
   BODIES.forEach(function (b) {
     planetWorld(b.key, proj);
-    var dist = camera.position.distanceTo(proj), off = (b.sun ? SUN_R * 1.25 : b.R * 1.35) * pxPerUnit / Math.max(dist, 0.001);
+    var dist = Math.max(camera.position.distanceTo(proj), 0.001);
+    var sc = b.sun ? sunGroup.scale.x : b.holder.scale.x;
+    b.rPx = (b.sun ? SUN_R : b.R) * sc * pxPerUnit / dist;          // raio do disco visível, em pixels
     proj.project(camera);
-    b.lv = proj.z < 1 && Math.abs(proj.x) < 1.1 && Math.abs(proj.y) < 1.1 && state.mode !== 'intro' && state.mode !== 'warp';
-    b.lx = (proj.x * 0.5 + 0.5) * W; b.ly = (-proj.y * 0.5 + 0.5) * H + off + 6;
+    b.onScreen = proj.z < 1 && Math.abs(proj.x) < 1.1 && Math.abs(proj.y) < 1.1;
+    b.lv = b.onScreen && state.mode !== 'intro' && state.mode !== 'warp';
+    b.cx = (proj.x * 0.5 + 0.5) * W; b.cy = (-proj.y * 0.5 + 0.5) * H;
+    b.lx = b.cx; b.ly = b.cy + b.rPx * (b.sun ? 1.25 : 1.35) + 6;
   });
-  // Na vista de cima do celular os planetas internos ficam juntos e os nomes se sobrepõem.
-  // Os planetas têm prioridade (de dentro para fora) e o Sol por último; um nome que bateria
-  // num já colocado some até abrir espaço. Assim nenhum toque cai no nome errado.
+  // Na vista de cima do celular os astros internos ficam juntos. Cada nome é um botão com área de toque
+  // generosa; se essa área cobrisse outro astro, o toque nele iria para o nome errado. Então um nome some
+  // (até abrir espaço) quando bateria em outro nome ou em cima do disco de outro astro.
+  // Prioridade: planetas de dentro para fora, o Sol por último (ele já é o centro óbvio).
   if (sheet.on) {
     var placed = [];
     LABEL_ORDER.forEach(function (b) {
       if (!b.lv) return;
-      if (!b.lw) b.lw = b.label.offsetWidth - 20;
-      for (var i = 0; i < placed.length; i++) {
+      if (!b.lw) { b.lw = b.label.offsetWidth; b.lh = b.label.offsetHeight; }
+      var x0 = b.lx - b.lw / 2, x1 = b.lx + b.lw / 2, y0 = b.ly, y1 = b.ly + b.lh, i;
+      for (i = 0; i < placed.length; i++) {
         var o = placed[i];
-        if (Math.abs(o.lx - b.lx) < (o.lw + b.lw) / 2 + 4 && Math.abs(o.ly - b.ly) < 22) { b.lv = false; return; }
+        if (Math.abs(o.lx - b.lx) < (o.lw + b.lw) / 2 && Math.abs(o.ly - b.ly) < (o.lh + b.lh) / 2) { b.lv = false; return; }
+      }
+      for (i = 0; i < BODIES.length; i++) {
+        var q = BODIES[i]; if (q === b || !q.onScreen) continue;
+        var nx = Math.max(x0, Math.min(q.cx, x1)), ny = Math.max(y0, Math.min(q.cy, y1));
+        if (Math.hypot(nx - q.cx, ny - q.cy) < q.rPx + 3) { b.lv = false; return; }
       }
       placed.push(b);
     });

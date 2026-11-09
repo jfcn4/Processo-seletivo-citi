@@ -255,3 +255,49 @@
 .mk-docrow-t small { font-size: 12px; color: var(--ink-dim); }
 .mk-docrow .mk-actions { grid-column: 1 / -1; gap: 6px; }
 .mk-docrow .mk-btn { padding: 6px 10px; font-size: 12.5px; }
+
+/* ---- convite para rolar (resumo.js): borda esmaecida + "Role para ver mais" ---- */
+.scue { position: absolute; left: 0; right: 0; bottom: 0; height: 0; z-index: 6; pointer-events: none; }
+.scue-panel { position: fixed; z-index: 9; bottom: auto; }
+.scue-fade { position: absolute; left: 0; right: 0; bottom: 0; height: 96px; opacity: 0; transition: opacity .3s ease;
+  background: linear-gradient(180deg, rgba(4, 11, 8, 0), rgba(4, 11, 8, .92) 85%); }
+.scue-panel .scue-fade { height: 84px; background: linear-gradient(180deg, rgba(3, 10, 7, 0), rgba(3, 10, 7, .95) 85%); }
+.scue.is-fade .scue-fade { opacity: 1; }
+.scue-btn { position: absolute; left: 50%; bottom: calc(14px + env(safe-area-inset-bottom, 0px)); transform: translate(-50%, 10px); opacity: 0;
+  display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px 8px 16px; border-radius: 999px; white-space: nowrap;
+  font-family: var(--f-mono); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink);
+  background: rgba(10, 26, 19, .92); border: 1px solid var(--scue, var(--mk-acc, var(--accent, #4fe577))); box-shadow: 0 8px 26px rgba(0, 0, 0, .45);
+  transition: opacity .3s ease, transform .3s ease; cursor: pointer; }
+.scue-btn span { display: inline-block; color: var(--scue, var(--mk-acc, var(--accent, #4fe577))); animation: scue-pulo 1.6s ease-in-out infinite; }
+.scue.is-btn .scue-btn { opacity: 1; transform: translate(-50%, 0); pointer-events: auto; }
+#dx .scue { --scue: var(--dx-s1); }
+@keyframes scue-pulo { 0%, 100% { transform: translateY(-1px); } 50% { transform: translateY(3px); } }
+@media (prefers-reduced-motion: reduce) { .scue-btn span { animation: none; } .scue-fade, .scue-btn { transition: none; } }
+
+/* ---- notas editáveis dentro da balança + bloco de robustez ---- */
+.mk-sl-notes.is-edit { gap: 10px; flex-wrap: wrap; }
+.mk-nt { display: inline-flex; align-items: center; gap: 6px; padding: 3px 4px 3px 9px; border-radius: 999px; border: 1px solid var(--line); background: rgba(255, 255, 255, .02); transition: border-color .2s, background .2s; }
+.mk-sl-notes .mk-nt::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--dot); }
+.mk-nt em { font-style: normal; font-size: 12px; color: var(--ink-dim); }
+.mk-nt b { min-width: 12px; text-align: center; font-family: var(--f-display); font-size: 14px; color: var(--ink); font-variant-numeric: tabular-nums; }
+.mk-nt button { width: 24px; height: 24px; border-radius: 50%; border: 1px solid var(--line); background: rgba(255, 255, 255, .04); color: var(--ink); font-size: 14px; line-height: 1; cursor: pointer; display: grid; place-items: center; padding: 0; }
+.mk-nt button:hover:not(:disabled) { border-color: rgba(79, 229, 119, .6); }
+.mk-nt button:disabled { opacity: .28; cursor: default; }
+.mk-nt small { font-family: var(--f-mono); font-size: 10px; color: var(--ink-faint); padding-right: 4px; }
+.mk-nt small:empty { display: none; }
+.mk-nt.is-mud { border-color: rgba(255, 209, 102, .55); background: rgba(255, 209, 102, .06); }
+.mk-nt.is-mud b { color: #ffd166; }
+.mk-rob { display: grid; gap: 10px; padding: 14px; border-radius: 14px; border: 1px solid var(--line); background: rgba(255, 255, 255, .025); }
+.mk-rob .mk-label { margin: 0; }
+.mk-rob-how { margin: 0; font-size: 13px; line-height: 1.5; color: var(--ink-dim); }
+.mk-rob-how b { display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; border: 1px solid var(--line); color: var(--ink); font-size: 12px; }
+.mk-rob-out { display: grid; gap: 8px; }
+.mk-rob-big { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.mk-rob-big b { font-family: var(--f-display); font-weight: 800; font-size: 38px; line-height: 1; font-variant-numeric: tabular-nums; }
+.mk-rob-big span { flex: 1 1 200px; font-size: 13px; color: var(--ink-dim); }
+.mk-rob-big strong { color: var(--ink); }
+.mk-rob-meter { display: flex; height: 8px; border-radius: 999px; overflow: hidden; background: rgba(255, 255, 255, .05); }
+.mk-rob-meter i { display: block; height: 100%; transition: width .45s cubic-bezier(.3, 1, .4, 1); }
+.mk-rob-txt { margin: 0; font-size: 13.5px; line-height: 1.5; color: var(--ink-dim); }
+.mk-rob-txt b { color: var(--ink); }
+@media (prefers-reduced-motion: reduce) { .mk-rob-meter i { transition: none; } }

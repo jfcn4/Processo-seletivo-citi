@@ -32,10 +32,10 @@
   function round1(x) { return Math.round(x * 10) / 10; }
   var REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  // nota de cada setor = soma(peso × nota) / soma(pesos)
+  // nota de cada setor = soma(peso × nota) / soma(pesos); as notas podem ser mudadas pelo visitante (NOTAS)
   function notas() {
     var sw = 0, sv = 0, si = 0;
-    CRIT.forEach(function (c, k) { sw += W[k]; sv += W[k] * c.v; si += W[k] * c.i; });
+    CRIT.forEach(function (c, k) { sw += W[k]; sv += W[k] * NOTAS[k].v; si += W[k] * NOTAS[k].i; });
     if (!sw) return null;
     return { v: round1(sv / sw), i: round1(si / sw) };
   }
@@ -93,16 +93,30 @@
       var sid = id + '-s' + k;
       var row = node('<div class="mk-sl"><div class="mk-sl-top"><label for="' + sid + '"></label><output for="' + sid + '"></output></div>' +
         '<input type="range" id="' + sid + '" min="0" max="10" step="1" aria-describedby="' + sid + '-n">' +
-        '<p class="mk-sl-notes" id="' + sid + '-n"><span style="--dot:' + COR.v + '">Varejo ' + c.v + '</span><span style="--dot:' + COR.i + '">Indústria ' + c.i + '</span></p></div>');
+        (big
+          ? '<p class="mk-sl-notes is-edit" id="' + sid + '-n">' + ['v', 'i'].map(function (l) {
+              var nome = l === 'v' ? 'Varejo' : 'Indústria';
+              return '<span class="mk-nt" style="--dot:' + COR[l] + '" data-l="' + l + '"><em>' + nome + '</em>' +
+                '<button type="button" data-d="-1" aria-label="Diminuir a nota de ' + nome.toLowerCase() + ' em ' + esc(c.nome) + '">−</button><b></b>' +
+                '<button type="button" data-d="1" aria-label="Aumentar a nota de ' + nome.toLowerCase() + ' em ' + esc(c.nome) + '">+</button><small></small></span>';
+            }).join('') + '</p></div>'
+          : '<p class="mk-sl-notes" id="' + sid + '-n"><span style="--dot:' + COR.v + '" data-l="v"></span><span style="--dot:' + COR.i + '" data-l="i"></span></p></div>'));
       row.querySelector('label').textContent = c.nome;
       var inp = row.querySelector('input');
       inp.addEventListener('input', function () { W[k] = +inp.value; redraw(); stormUpdate(); });
       // setas mexem no slider, não trocam de planeta
       inp.addEventListener('keydown', function (e) { if (/^Arrow|^Page|^Home$|^End$/.test(e.key)) e.stopPropagation(); });
+      row.querySelectorAll('.mk-nt button').forEach(function (b) {
+        b.addEventListener('click', function () {
+          var l = b.parentNode.dataset.l;
+          NOTAS[k][l] = Math.max(1, Math.min(5, NOTAS[k][l] + +b.dataset.d));
+          redraw(); stormUpdate();
+        });
+      });
       inputs.push(inp); sl.appendChild(row);
     });
 
-    if (big) { left.appendChild(fixed); el.appendChild(left); el.appendChild(sl); }
+    if (big) { robustezBox(left); el.appendChild(left); el.appendChild(sl); }
     else { el.appendChild(left); el.appendChild(sl); el.appendChild(fixed); }
     container.appendChild(el);
 
@@ -129,6 +143,17 @@
         if (+inp.value !== W[k]) inp.value = W[k];
         inp.setAttribute('aria-valuetext', 'peso ' + W[k] + ' de 10');
         inp.parentNode.querySelector('output').textContent = W[k];
+        var row = inp.parentNode;
+        ['v', 'i'].forEach(function (l) {
+          var v = NOTAS[k][l], orig = CRIT[k][l], sp = row.querySelector('.mk-sl-notes [data-l="' + l + '"]');
+          if (!sp) return;
+          if (!big) { sp.textContent = (l === 'v' ? 'Varejo ' : 'Indústria ') + v; return; }
+          sp.querySelector('b').textContent = v;
+          sp.classList.toggle('is-mud', v !== orig);
+          sp.querySelector('small').textContent = v !== orig ? 'era ' + orig : '';
+          sp.querySelector('[data-d="-1"]').disabled = v <= 1;
+          sp.querySelector('[data-d="1"]').disabled = v >= 5;
+        });
       });
       btns.forEach(function (b, k) { b.setAttribute('aria-pressed', PRESETS[k].w.every(function (x, j) { return x === W[j]; }) ? 'true' : 'false'); });
     }
@@ -218,7 +243,7 @@
     var VH = top + CRIT.length * rh + 26, x = function (n) { return lx + (rx - lx) * (n - 1) / 4; };
     box.innerHTML = '<h4>Notas da matriz de decisão, critério a critério</h4><div class="mk-legend"><span style="--dot:' + COR.v + '">Varejo</span><span style="--dot:' + COR.i + '">Indústria</span><span style="--dot:#4fe577">Barra verde: peso atual na balança</span></div>';
     var svgWrap = node('<div></div>'); box.appendChild(svgWrap);
-    box.insertAdjacentHTML('beforeend', '<p class="mk-src">Notas de 1 a 5, minha interpretação dos dados do documento. Critérios com peso maior aparecem mais fortes.</p>' +
+    box.insertAdjacentHTML('beforeend', '<p class="mk-src">Notas de 1 a 5, minha interpretação dos dados do documento (ou as que você mudou na balança). Critérios com peso maior aparecem mais fortes.</p>' +
       tabela(['Critério', 'Varejo', 'Indústria'], CRIT.map(function (c) { return [c.nome, c.v, c.i]; })));
     container.appendChild(box);
     var tip = tooltip(box);
@@ -227,6 +252,7 @@
       [1, 2, 3, 4, 5].forEach(function (t) { s += '<line class="grid" x1="' + x(t) + '" x2="' + x(t) + '" y1="' + top + '" y2="' + (VH - 22) + '"/><text class="tick" x="' + x(t) + '" y="' + (VH - 6) + '" text-anchor="middle">' + t + '</text>'; });
       CRIT.forEach(function (c, k) {
         var cy = top + k * rh + rh / 2, op = (0.35 + 0.65 * W[k] / 10).toFixed(2);
+        c = { nome: c.nome, v: NOTAS[k].v, i: NOTAS[k].i };
         s += '<g style="opacity:' + op + '"><rect class="hit" tabindex="0" x="0" y="' + (cy - rh / 2) + '" width="' + VW + '" height="' + rh + '" data-x="' + x((c.v + c.i) / 2) + '" data-y="' + (cy - 10) + '" data-tip="<b>' + esc(c.nome) + '</b><br>Varejo ' + c.v + ' · Indústria ' + c.i + ' · peso ' + W[k] + '" aria-label="' + esc(c.nome) + ': varejo ' + c.v + ', indústria ' + c.i + ', peso ' + W[k] + '"/>' +
           '<text x="0" y="' + (cy - 2) + '" font-size="12.5" fill="#e9f5ee">' + esc(c.nome) + '</text>' +
           '<rect x="0" y="' + (cy + 6) + '" width="120" height="4" rx="2" fill="rgba(146,230,170,.12)"/><rect x="0" y="' + (cy + 6) + '" width="' + (W[k] * 12) + '" height="4" rx="2" fill="#4fe577"/>' +
@@ -256,72 +282,45 @@
     AMOSTRA.forEach(function (w) { var sv = 0, si = 0; for (var k = 0; k < w.length; k++) { sv += w[k] * NOTAS[k].v; si += w[k] * NOTAS[k].i; } if (sv > si) ganha++; });
     return ganha / AMOSTRA.length * 100;
   }
-  function notasEse(container) {
-    var c = node('<div class="mk-card mk-ese"></div>');
-    c.innerHTML = '<p class="mk-label">E se eu errei alguma nota? · mexa nas notas, não nos pesos</p>' +
-      '<p class="mk-fixed">A balança mostra que a decisão aguenta pesos diferentes. Mas as notas de 1 a 5 também são julgamento meu. Aumente ou diminua qualquer nota e veja quanto a resposta muda.</p>';
+  // bloco vivo embaixo da balança: as notas (editáveis nas linhas dos critérios) contra 20 mil combinações de pesos
+  var CEN = [['doc', 'Minhas notas'], ['otim', 'Fui otimista com o varejo'], ['duro', 'Fui duro com a indústria'], ['ambos', 'Os dois juntos']];
+  function notasDoCenario(v) {   // "otimista com o varejo" tira 1 ponto dele onde ganhou; "duro com a indústria" dá 1 ponto a ela onde perdeu
+    return CRIT.map(function (cr) {
+      var n = { v: cr.v, i: cr.i };
+      if ((v === 'otim' || v === 'ambos') && cr.v > cr.i) n.v = cr.v - 1;
+      if ((v === 'duro' || v === 'ambos') && cr.i < cr.v) n.i = cr.i + 1;
+      return n;
+    });
+  }
+  function robustezBox(container) {
+    var c = node('<div class="mk-rob"><p class="mk-label">E se eu errei alguma nota?</p>' +
+      '<p class="mk-rob-how">As notas de 1 a 5 também são julgamento meu. Use <b>−</b> e <b>+</b> ao lado de cada critério, ou um cenário:</p></div>');
     var pres = node('<div class="mk-presets" role="group" aria-label="Cenários de notas"></div>');
-    var CEN = [
-      ['doc', 'Minhas notas'],
-      ['otim', 'Fui otimista com o varejo'],
-      ['duro', 'Fui duro com a indústria'],
-      ['ambos', 'Os dois juntos']
-    ];
-    CEN.forEach(function (x) { var b = node('<button class="mk-preset" type="button"></button>'); b.textContent = x[1]; b.dataset.v = x[0]; pres.appendChild(b); });
+    CEN.forEach(function (x) {
+      var b = node('<button class="mk-preset" type="button"></button>'); b.textContent = x[1]; b.dataset.v = x[0];
+      b.addEventListener('click', function () { NOTAS = notasDoCenario(x[0]); redraw(); stormUpdate(); });
+      pres.appendChild(b);
+    });
     c.appendChild(pres);
-    var grid = node('<div class="mk-ese-grid"></div>');
-    var tab = node('<div class="mk-ese-tab" role="table" aria-label="Notas por critério"></div>');
-    var out = node('<div class="mk-ese-out" aria-live="polite"></div>');
-    grid.appendChild(tab); grid.appendChild(out); c.appendChild(grid);
+    var out = node('<div class="mk-rob-out" aria-live="polite"></div>'); c.appendChild(out);
     container.appendChild(c);
-    function cenario(v) { cenario0(v); draw(); }
-    function igual(a) { return NOTAS.every(function (n, k) { return n.v === a[k].v && n.i === a[k].i; }); }
-    function draw() {
-      tab.innerHTML = '<div role="row" class="is-h"><span role="columnheader">Critério</span><span role="columnheader" style="color:' + COR.v + '">Varejo</span><span role="columnheader" style="color:' + COR.i + '">Indústria</span></div>' +
-        CRIT.map(function (cr, k) {
-          function cel(lado) {
-            var v = NOTAS[k][lado], mud = v !== cr[lado];
-            return '<span role="cell" class="mk-ese-cel' + (mud ? ' is-mud' : '') + '"><button type="button" data-k="' + k + '" data-l="' + lado + '" data-d="-1" aria-label="Diminuir a nota de ' + (lado === 'v' ? 'varejo' : 'indústria') + ' em ' + esc(cr.nome) + '"' + (v <= 1 ? ' disabled' : '') + '>−</button>' +
-              '<b>' + v + '</b><button type="button" data-k="' + k + '" data-l="' + lado + '" data-d="1" aria-label="Aumentar a nota de ' + (lado === 'v' ? 'varejo' : 'indústria') + ' em ' + esc(cr.nome) + '"' + (v >= 5 ? ' disabled' : '') + '>+</button>' +
-              (mud ? '<em>era ' + cr[lado] + '</em>' : '') + '</span>';
-          }
-          return '<div role="row"><span role="rowheader">' + esc(cr.nome) + '</span>' + cel('v') + cel('i') + '</div>';
-        }).join('');
-      tab.querySelectorAll('button').forEach(function (b) {
-        b.addEventListener('click', function () {
-          var n = NOTAS[+b.dataset.k], l = b.dataset.l;
-          n[l] = Math.max(1, Math.min(5, n[l] + +b.dataset.d));
-          draw();
-          var again = tab.querySelector('button[data-k="' + b.dataset.k + '"][data-l="' + l + '"][data-d="' + b.dataset.d + '"]');
-          if (again && !again.disabled) again.focus();
-        });
-      });
-      var sv = 0, si = 0; NOTAS.forEach(function (n) { sv += n.v; si += n.i; });
-      var mv = sv / NOTAS.length, mi = si / NOTAS.length, r = robustez(), dif = sv - si;
-      var cen = CEN.filter(function (x) { var keep = NOTAS; cenario0(x[0]); var ok = igual(keep); NOTAS = keep; return ok; })[0];
+    var ultimo = null, cache = 0;
+    function render() {
+      var chave = NOTAS.map(function (n) { return n.v + '' + n.i; }).join('');
+      if (chave !== ultimo) { cache = robustez(); ultimo = chave; }
+      var r = cache, mud = NOTAS.filter(function (n, k) { return n.v !== CRIT[k].v || n.i !== CRIT[k].i; }).length;
+      var cen = CEN.filter(function (x) { var a = notasDoCenario(x[0]); return a.every(function (n, k) { return n.v === NOTAS[k].v && n.i === NOTAS[k].i; }); })[0];
       pres.querySelectorAll('button').forEach(function (b) { b.setAttribute('aria-pressed', cen && cen[0] === b.dataset.v ? 'true' : 'false'); });
-      var venc = r >= 50 ? 'varejo' : 'indústria';
-      out.innerHTML =
-        '<div class="mk-ese-big"><b style="color:' + (r >= 50 ? COR.v : COR.i) + '">' + dec(r).replace(',0', '') + '%</b><span>das 20 mil combinações de pesos dão <strong>varejo</strong>' + (igual(CRIT) ? ' (no documento, com 200 mil: 84%)' : '') + '</span></div>' +
-        '<div class="mk-ese-bars" aria-label="Notas com pesos iguais">' +
-          '<div><span>Varejo</span><i style="width:' + (mv / 5 * 100) + '%;background:' + COR.v + '"></i><b>' + dec(mv) + '</b></div>' +
-          '<div><span>Indústria</span><i style="width:' + (mi / 5 * 100) + '%;background:' + COR.i + '"></i><b>' + dec(mi) + '</b></div></div>' +
-        '<p class="mk-ese-txt">' + (dif > 0
-          ? 'Com pesos iguais o varejo ainda vence. Para a indústria passar à frente, seria preciso tirar mais <b>' + (dif + 1) + ' ' + (dif + 1 === 1 ? 'ponto' : 'pontos') + '</b> do varejo (ou dar à indústria), somando os seis critérios.'
-          : dif === 0 ? 'Com pesos iguais, empate. A decisão passa a depender só de quais critérios pesam mais.'
-          : 'Com essas notas, a <b>indústria</b> vence com pesos iguais. É o tamanho do erro que precisaria existir nas minhas notas para a resposta mudar.') + '</p>';
+      var sv = 0, si = 0; NOTAS.forEach(function (n) { sv += n.v; si += n.i; }); var dif = sv - si;
+      out.innerHTML = '<div class="mk-rob-big"><b style="color:' + (r >= 50 ? COR.v : COR.i) + '">' + dec(r).replace(',0', '') + '%</b>' +
+        '<span>das 20 mil combinações de pesos dão <strong>varejo</strong>' + (mud ? ', com ' + mud + (mud === 1 ? ' critério mudado' : ' critérios mudados') : ' com as minhas notas (no documento, com 200 mil: 84%)') + '</span></div>' +
+        '<div class="mk-rob-meter" aria-hidden="true"><i style="width:' + r + '%;background:' + COR.v + '"></i><i style="width:' + (100 - r) + '%;background:' + COR.i + '"></i></div>' +
+        '<p class="mk-rob-txt">' + (dif > 0
+          ? 'Com pesos iguais o varejo ainda vence. Para virar, a indústria precisaria de mais <b>' + (dif + 1) + ' ' + (dif + 1 === 1 ? 'ponto' : 'pontos') + '</b> somando os seis critérios.'
+          : dif === 0 ? 'Com pesos iguais, empate: a decisão passa a depender só dos pesos.'
+          : 'Com essas notas, a <b>indústria</b> vence com pesos iguais. É o tamanho do erro que as minhas notas precisariam ter.') + '</p>';
     }
-    // cenários: "otimista com o varejo" tira 1 ponto dele onde ganhou; "duro com a indústria" dá 1 ponto a ela onde perdeu
-    function cenario0(v) {
-      NOTAS = CRIT.map(function (cr) {
-        var n = { v: cr.v, i: cr.i };
-        if ((v === 'otim' || v === 'ambos') && cr.v > cr.i) n.v = cr.v - 1;
-        if ((v === 'duro' || v === 'ambos') && cr.i < cr.v) n.i = cr.i + 1;
-        return n;
-      });
-    }
-    pres.querySelectorAll('button').forEach(function (b) { b.addEventListener('click', function () { cenario(b.dataset.v); }); });
-    draw();
+    views.push(render); render();
   }
 
   /* ================= PDF ================= */
@@ -407,10 +406,9 @@
     body.innerHTML = '';
     body.appendChild(window.CITI_RESUMO ? window.CITI_RESUMO(hero(), t === 'balanca' ? 'medio' : 'fino') : hero());
     if (t === 'balanca') {
-      var c = node('<div class="mk-card"><p class="mk-label">Teste você mesmo: mude os pesos</p></div>');
+      var c = node('<div class="mk-card"><p class="mk-label">Teste você mesmo: mude os pesos e, se quiser, as notas</p></div>');
       body.appendChild(c); balanca(c, true);
       grafMatriz(body);
-      notasEse(body);
     } else if (t === 'numeros') {
       var g = node('<div class="mk-charts"></div>'); body.appendChild(g);
       grafVarejo(g); grafIA(g);

@@ -198,3 +198,7 @@
   .gg-pl-kpis b { font-size: 19px; }
 }
 @media (prefers-reduced-motion: reduce) { .gg-pl-sw::after, .gg-pl-acao, .gg-pl-probs li, .gg-pl-row s { transition: none; } }
+.gg-pl-meta { margin: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.gg-pl-meta span { padding: 3px 10px; border-radius: 999px; border: 1px solid var(--line); font-size: 12px; color: var(--ink-dim); }
+.gg-pl-medir { margin: 0; display: flex; gap: 8px; align-items: baseline; font-size: 13px; line-height: 1.45; color: var(--ink); }
+.gg-pl-medir b { flex: none; font-family: var(--f-mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--gg-in); }

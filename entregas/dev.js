@@ -223,28 +223,22 @@
     root.querySelector('[data-close]').addEventListener('click', fechar);
     root.querySelectorAll('[data-tab]').forEach(function (b) { b.addEventListener('click', function () { setAba(b.dataset.tab); }); });
     document.body.appendChild(root);
-    // ao rolar para baixo, o cabeçalho encolhe (sem sumir), como na entrega de Dados
+    // cabeçalho fixo, sem encolher ao rolar; só mede a altura para reservar o espaço no topo do conteúdo
     var scroller = root.querySelector('.mk-body'), topEl = root.querySelector('.mk-top');
-    scroller.addEventListener('scroll', function () {
-      var y = scroller.scrollTop, compact = root.classList.contains('is-compact');
-      if (!compact && y > 60) root.classList.add('is-compact');
-      else if (compact && y < 20) root.classList.remove('is-compact');
-    }, { passive: true });
-    // mede o cabeçalho aberto (sem animação) para reservar esse espaço no topo do conteúdo
     root.measureHead = function () {
       if (root.hidden) return;
-      var was = root.classList.contains('is-compact');
-      root.classList.add('dv-notrans'); root.classList.remove('is-compact');
       root.style.setProperty('--dv-head', topEl.offsetHeight + 'px');
       topEl.style.right = (scroller.offsetWidth - scroller.clientWidth) + 'px';   // não cobre a barra de rolagem
-      if (was) root.classList.add('is-compact');
-      void topEl.offsetHeight; root.classList.remove('dv-notrans');
     };
     window.addEventListener('resize', root.measureHead);
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(root.measureHead);
     window.addEventListener('keydown', function (e) {
       if (root.hidden) return;
-      if (e.key === 'Escape') { fechar(); e.stopImmediatePropagation(); }
+      if (e.key === 'Escape') {
+        // com algo em tela cheia, o Esc só sai da tela cheia (tratado em telaCheia), sem fechar a entrega
+        if (document.fullscreenElement || document.webkitFullscreenElement || root.querySelector('.is-full')) return;
+        fechar(); e.stopImmediatePropagation();
+      }
       else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') e.stopImmediatePropagation();   // não troca de planeta
     }, true);
   }
@@ -266,11 +260,31 @@
     root.querySelectorAll('[data-tab]').forEach(function (b) { b.setAttribute('aria-selected', b.dataset.tab === t ? 'true' : 'false'); });
     body.innerHTML = '';
     body.appendChild(window.CITI_RESUMO ? window.CITI_RESUMO(hero(), t === 'loja' ? 'medio' : 'fino') : hero());
-    if (t === 'loja') abaLoja(); else if (t === 'api') abaApi(); else if (t === 'raiox') raioX(body); else if (t === 'repo') abaRepo(); else abaRelatorio();
+    if (t === 'loja') abaLoja(); else if (t === 'api') abaApi(alvo); else if (t === 'raiox') raioX(body); else if (t === 'repo') abaRepo(); else abaRelatorio();
     var sc = root.querySelector('.mk-body');
     sc.scrollTop = 0;
     root.classList.remove('is-compact');
-    if (alvo) setTimeout(function () { var el = body.querySelector(alvo); if (el) el.scrollIntoView({ block: 'start', behavior: 'smooth' }); }, 60);
+    if (alvo && t !== 'api') setTimeout(function () { var el = body.querySelector(alvo); if (el) el.scrollIntoView({ block: 'start', behavior: 'smooth' }); }, 60);
+  }
+
+  /* ---------- tela cheia: usa a API do navegador; se não houver, cobre a janela com CSS ---------- */
+  function telaCheia(alvo, btn) {
+    function atual() { return document.fullscreenElement || document.webkitFullscreenElement; }
+    function marca() { var on = atual() === alvo || alvo.classList.contains('is-full'); btn.textContent = on ? 'Sair da tela cheia ✕' : 'Tela cheia ⤢'; alvo.classList.toggle('is-fs', atual() === alvo); }
+    btn.addEventListener('click', function () {
+      if (atual() === alvo) { (document.exitFullscreen || document.webkitExitFullscreen).call(document); return; }
+      if (alvo.classList.contains('is-full')) { alvo.classList.remove('is-full'); marca(); return; }
+      var req = alvo.requestFullscreen || alvo.webkitRequestFullscreen;
+      if (req) { try { var pr = req.call(alvo); if (pr && pr.catch) pr.catch(function () { alvo.classList.add('is-full'); marca(); }); } catch (e) { alvo.classList.add('is-full'); marca(); } }
+      else { alvo.classList.add('is-full'); marca(); }
+    });
+    document.addEventListener('fullscreenchange', marca); document.addEventListener('webkitfullscreenchange', marca);
+    // Esc sai primeiro da tela cheia de CSS, sem fechar a entrega
+    window.addEventListener('keydown', function (e) {
+      if (e.key !== 'Escape') return;
+      if (alvo.classList.contains('is-full')) { alvo.classList.remove('is-full'); marca(); e.stopImmediatePropagation(); }
+      else if (atual() === alvo) { (document.exitFullscreen || document.webkitExitFullscreen).call(document); e.stopImmediatePropagation(); }
+    }, true);
   }
 
   /* ---------- aba: loja ao vivo ---------- */
@@ -279,13 +293,14 @@
     c.innerHTML =
       '<div class="dv-bar"><div><p class="mk-label" style="margin:0 0 4px">O painel web do repositório, rodando</p>' +
         '<p class="dv-note">É o <code>public/index.html</code> sem nenhuma alteração. A única diferença: em vez do servidor Express com PostgreSQL, quem responde às chamadas é uma API simulada no navegador, com as mesmas regras do <code>PlantaController.ts</code>. Pode mexer à vontade.</p></div>' +
-        '<div class="mk-actions"><button class="mk-btn" type="button" data-reset>Restaurar as 10 plantas do seed</button><a class="mk-btn" href="' + LOJA_URL + '" target="_blank" rel="noopener">Abrir em nova aba ↗</a></div></div>' +
+        '<div class="mk-actions"><button class="mk-btn" type="button" data-reset>Restaurar as 10 plantas do seed</button><button class="mk-btn is-main" type="button" data-full>Tela cheia ⤢</button><a class="mk-btn" href="' + LOJA_URL + '" target="_blank" rel="noopener">Abrir em nova aba ↗</a></div></div>' +
       '<div class="dv-frame-wrap"><iframe class="dv-frame" src="' + LOJA_URL + '" title="Painel web da Folhagem & Cia, rodando com a API simulada" loading="lazy" allow="fullscreen" allowfullscreen></iframe></div>' +
       '<div class="dv-try"><p class="mk-label" style="margin:0">Experimente</p><ul>' +
         '<li><b>Venda mais vasos do que existem.</b> A API responde 400, o estoque não muda e a planta balança no jardim.</li>' +
         '<li><b>Cadastre uma planta com estoque 0.</b> Ela é aceita (o erro clássico do <code>!campo</code> recusaria) e nasce murcha.</li>' +
         '<li><b>Filtre por pet-friendly “Não”.</b> O filtro <code>false</code> não se confunde com filtro ausente.</li>' +
         '<li><b>No jardim,</b> cada planta fica na faixa de luz de que precisa, e mais vasos viram mais folhas.</li></ul></div>';
+    telaCheia(c.querySelector('.dv-frame-wrap'), c.querySelector('[data-full]'));
     c.querySelector('[data-reset]').addEventListener('click', function () {
       API.restaurar();
       var fr = c.querySelector('iframe'); try { fr.contentWindow.location.reload(); } catch (e) { fr.src = LOJA_URL; }
@@ -314,26 +329,72 @@
     ['Estoque', 'GET', '/plantas/esgotadas', null, 200, 'bônus: só as plantas com estoque 0'],
     ['Remoção', 'DELETE', '/plantas/9999', null, 404, 'deletar um id que não existe']
   ];
-  function abaApi() {
-    var grid = node('<div class="dv-api"></div>');
-    // lista de requisições prontas
-    var lista = node('<div class="mk-card dv-reqs"><p class="mk-label">A tabela de testes do enunciado</p><p class="dv-note" style="margin:0 0 12px">Clique para enviar. As requisições vão para a mesma API da loja, então uma venda aqui aparece lá.</p><div class="dv-req-list" role="list"></div></div>');
-    var ul = lista.querySelector('.dv-req-list'), grupo = '';
-    PRESETS.forEach(function (p, k) {
-      if (p[0] !== grupo) { grupo = p[0]; ul.appendChild(node('<p class="dv-req-group">' + esc(grupo) + '</p>')); }
-      var b = node('<button class="dv-req" type="button" role="listitem"><span class="dv-m m-' + MET[p[1]] + '">' + p[1] + '</span><span class="dv-req-main"><code></code><span></span></span><span class="dv-exp">' + p[4] + '</span></button>');
-      b.querySelector('code').textContent = p[2]; b.querySelector('.dv-req-main span').textContent = p[5];
-      b.addEventListener('click', function () { carregar(p); enviar(); });
-      ul.appendChild(b);
+  var PASSOS_API = [['req', 'Uma requisição de cada vez'], ['race', 'Duas compras ao mesmo tempo'], ['suite', 'Os ' + TESTES.length + ' testes']];
+  var GRUPOS_API = ['Cadastro', 'Busca', 'Edição', 'Filtros', 'Venda', 'Estoque', 'Remoção'];
+  var apiPasso = 'req', apiGrupo = 'Cadastro';
+  function abaApi(alvo) {
+    if (alvo === '#dv-race') apiPasso = 'race'; else if (alvo === '#dv-suite') apiPasso = 'suite';
+    var nav = node('<div class="dv-steps" role="tablist" aria-label="Partes do teste da API"></div>');
+    PASSOS_API.forEach(function (x, k) {
+      var b = node('<button type="button" role="tab" class="dv-step"><i>' + (k + 1) + '</i><span></span></button>');
+      b.querySelector('span').textContent = x[1]; b.dataset.p = x[0];
+      b.addEventListener('click', function () { apiPasso = x[0]; mostra(true); });
+      nav.appendChild(b);
     });
-    // construtor + resposta
-    var cons = node('<div class="mk-card dv-console"><p class="mk-label">Monte a sua requisição</p>' +
+    body.appendChild(nav);
+    var palco = node('<div class="dv-step-body"></div>'); body.appendChild(palco);
+    var feitos = {};
+    function mostra(rolar) {
+      nav.querySelectorAll('.dv-step').forEach(function (b) { b.setAttribute('aria-selected', b.dataset.p === apiPasso ? 'true' : 'false'); });
+      palco.querySelectorAll('[data-passo]').forEach(function (el) { el.hidden = el.dataset.passo !== apiPasso; });
+      if (!feitos[apiPasso]) {
+        var el = apiPasso === 'req' ? requisicoes() : apiPasso === 'race' ? corrida() : bateria();
+        el.dataset.passo = apiPasso; feitos[apiPasso] = el;
+        var k = PASSOS_API.map(function (x) { return x[0]; }).indexOf(apiPasso), prox = PASSOS_API[k + 1];
+        if (prox) {
+          var nx = node('<div class="dv-next"><button class="mk-btn" type="button">Próximo: ' + esc(prox[1].toLowerCase()) + ' →</button></div>');
+          nx.querySelector('button').addEventListener('click', function () { apiPasso = prox[0]; mostra(true); });
+          el.appendChild(nx);
+        }
+        palco.appendChild(el);
+      }
+      if (rolar) { var sc = root.querySelector('.mk-body'); var y = nav.getBoundingClientRect().top - sc.getBoundingClientRect().top + sc.scrollTop - 12; if (sc.scrollTop > y) sc.scrollTo({ top: y }); }
+    }
+    mostra(false);
+  }
+  // passo 1: escolha uma rota, clique numa requisição pronta ou monte a sua
+  function requisicoes() {
+    var w = node('<div class="dv-apiw"></div>');
+    w.innerHTML = '<div class="dv-apiw-top"><p class="dv-note">A tabela de testes do enunciado, pronta para enviar. Escolha uma rota, clique numa requisição e veja a resposta na hora. É a mesma API da loja: uma venda aqui aparece lá.</p>' +
+      '<button class="mk-btn" type="button" data-full>Tela cheia ⤢</button></div>';
+    var grid = node('<div class="dv-api"></div>');
+    var lista = node('<div class="mk-card dv-reqs"><div class="dv-grupos" role="tablist" aria-label="Rotas"></div><div class="dv-req-list" role="list"></div></div>');
+    var tabs = lista.querySelector('.dv-grupos'), ul = lista.querySelector('.dv-req-list');
+    GRUPOS_API.forEach(function (g) {
+      var n = PRESETS.filter(function (p) { return p[0] === g; }).length;
+      var b = node('<button type="button" role="tab"></button>'); b.innerHTML = esc(g) + ' <small>' + n + '</small>'; b.dataset.g = g;
+      b.addEventListener('click', function () { apiGrupo = g; listar(); });
+      tabs.appendChild(b);
+    });
+    function listar() {
+      tabs.querySelectorAll('button').forEach(function (b) { b.setAttribute('aria-selected', b.dataset.g === apiGrupo ? 'true' : 'false'); });
+      ul.innerHTML = '';
+      PRESETS.forEach(function (p) {
+        if (p[0] !== apiGrupo) return;
+        var b = node('<button class="dv-req" type="button" role="listitem"><span class="dv-m m-' + MET[p[1]] + '">' + p[1] + '</span><span class="dv-req-main"><code></code><span></span></span><span class="dv-exp">espera ' + p[4] + '</span></button>');
+        b.querySelector('code').textContent = p[2]; b.querySelector('.dv-req-main span').textContent = p[5];
+        b.addEventListener('click', function () { ul.querySelectorAll('.dv-req').forEach(function (x) { x.classList.toggle('is-on', x === b); }); carregar(p); enviar(); });
+        ul.appendChild(b);
+      });
+    }
+    var cons = node('<div class="mk-card dv-console"><p class="mk-label">A requisição</p>' +
       '<div class="dv-line"><label class="sr-only" for="dv-met">Método</label><select id="dv-met"><option>GET</option><option>POST</option><option>PATCH</option><option>DELETE</option></select>' +
       '<label class="sr-only" for="dv-path">Caminho</label><input id="dv-path" spellcheck="false" autocomplete="off" value="/plantas"><button class="mk-btn is-main" type="button" data-send>Enviar</button></div>' +
-      '<label class="dv-mini" for="dv-body">Corpo (JSON)</label><textarea id="dv-body" spellcheck="false" rows="6" placeholder="{ }"></textarea>' +
-      '<div class="dv-res" aria-live="polite"><p class="dv-res-empty">A resposta aparece aqui.</p></div></div>');
-    var met = cons.querySelector('#dv-met'), path = cons.querySelector('#dv-path'), txt = cons.querySelector('#dv-body'), res = cons.querySelector('.dv-res'), esperado = null;
-    function carregar(p) { met.value = p[1]; path.value = p[2]; txt.value = p[3] ? JSON.stringify(p[3], null, 2) : ''; esperado = p[4]; }
+      '<details class="dv-corpo"><summary>Corpo (JSON)</summary><textarea id="dv-body" spellcheck="false" rows="6" placeholder="{ }"></textarea></details>' +
+      '<p class="mk-label" style="margin:6px 0 0">A resposta</p>' +
+      '<div class="dv-res" aria-live="polite"><p class="dv-res-empty">Clique numa requisição à esquerda, ou edite e envie a sua.</p></div></div>');
+    var met = cons.querySelector('#dv-met'), path = cons.querySelector('#dv-path'), txt = cons.querySelector('#dv-body'), corpo = cons.querySelector('.dv-corpo'), res = cons.querySelector('.dv-res'), esperado = null;
+    function carregar(p) { met.value = p[1]; path.value = p[2]; txt.value = p[3] ? JSON.stringify(p[3], null, 2) : ''; corpo.open = !!p[3]; esperado = p[4]; }
     function enviar() {
       var t0 = performance.now(), m = met.value, pth = path.value.trim() || '/', exp = esperado;
       esperado = null;
@@ -346,10 +407,11 @@
     }
     cons.querySelector('[data-send]').addEventListener('click', function () { esperado = null; enviar(); });
     path.addEventListener('keydown', function (e) { if (e.key === 'Enter') { esperado = null; enviar(); } });
-    grid.appendChild(lista); grid.appendChild(cons);
-    body.appendChild(grid);
-    body.appendChild(corrida());
-    body.appendChild(bateria());
+    met.addEventListener('change', function () { if (met.value === 'POST' || met.value === 'PATCH') corpo.open = true; });
+    grid.appendChild(lista); grid.appendChild(cons); w.appendChild(grid);
+    listar();
+    telaCheia(w, w.querySelector('[data-full]'));
+    return w;
   }
 
   /* corrida: duas compras do último vaso ao mesmo tempo */
@@ -358,7 +420,8 @@
     c.innerHTML =
       '<p class="mk-label">A decisão de que mais me orgulho</p>' +
       '<h3 class="dv-h3">Duas pessoas compram o último vaso ao mesmo tempo</h3>' +
-      '<p class="dv-note">O enunciado pergunta: e se duas pessoas comprarem o último vaso juntas? Se a API busca a planta, confere o estoque e só depois diminui, as duas compras passam pela conferência antes de qualquer uma diminuir. Escolha o jeito de vender e dispare as duas compras. É o código rodando de verdade, com as duas requisições em paralelo.</p>' +
+      '<p class="dv-note">Escolha o jeito de vender e dispare as duas compras, em paralelo, no código de verdade.</p>' +
+      '<details class="dv-why"><summary>Por que isso quebra?</summary><p class="dv-note">O enunciado pergunta: e se duas pessoas comprarem o último vaso juntas? Se a API busca a planta, confere o estoque e só depois diminui, as duas compras passam pela conferência antes de qualquer uma diminuir.</p></details>' +
       '<div class="dv-race-pick" role="radiogroup" aria-label="Jeito de vender">' +
         '<button type="button" role="radio" data-modo="ingenua" aria-checked="false"><strong>Buscar, conferir, diminuir</strong><span>três passos separados</span></button>' +
         '<button type="button" role="radio" data-modo="atomica" aria-checked="true"><strong>updateMany com a condição</strong><span>como está no repositório</span></button></div>' +
@@ -402,7 +465,8 @@
   function bateria() {
     var c = node('<div class="mk-card dv-suite" id="dv-suite"></div>');
     c.innerHTML = '<div class="dv-bar"><div><p class="mk-label" style="margin:0 0 4px">tests/plantas.test.ts</p><h3 class="dv-h3" style="margin:0">Os ' + TESTES.length + ' testes do repositório, rodando aqui</h3>' +
-      '<p class="dv-note">Os mesmos casos e as mesmas verificações do arquivo de testes, traduzidos para rodar contra a API simulada. Cada teste começa com o banco vazio, como o <code>TRUNCATE</code> do <code>beforeEach</code>. No repositório, eles rodam com <code>yarn test</code> contra o PostgreSQL.</p></div>' +
+      '<p class="dv-note">Os mesmos casos do arquivo de testes, rodando contra a API simulada.</p>' +
+      '<details class="dv-why"><summary>Como funciona</summary><p class="dv-note">Os mesmos casos e as mesmas verificações do arquivo de testes, traduzidos para rodar contra a API simulada. Cada teste começa com o banco vazio, como o <code>TRUNCATE</code> do <code>beforeEach</code>. No repositório, eles rodam com <code>yarn test</code> contra o PostgreSQL.</p></details></div>' +
       '<div class="mk-actions"><button class="mk-btn is-main" type="button" data-run>Rodar os ' + TESTES.length + ' testes</button></div></div>' +
       '<div class="dv-sum" aria-live="polite"></div><div class="dv-tests"></div>';
     var box = c.querySelector('.dv-tests'), sum = c.querySelector('.dv-sum'), btn = c.querySelector('[data-run]'), rows = [];
@@ -651,6 +715,50 @@
   }
 
   /* ================= painel lateral ================= */
+  /* figura do painel: duas compras do último vaso, nos dois jeitos de vender (linha do tempo animada) */
+  function decisaoFig(container) {
+    var f = node('<figure class="dv-fig"><div class="dv-fig-modos" role="group" aria-label="Jeito de vender">' +
+      '<button type="button" data-m="ingenua">Conferir, depois baixar</button><button type="button" data-m="atomica">Conferir e baixar juntos</button></div>' +
+      '<div class="dv-fig-svg"></div><figcaption aria-live="polite"></figcaption></figure>');
+    var modo = 'atomica', timers = [];
+    var CENA = {
+      // [cliente (0 = A, 1 = B), início, fim, rótulo, tipo]  · tempo em unidades de 0 a 10
+      ingenua: { blocos: [[0, 0.3, 3.3, 'confere', 'le'], [1, 1.3, 4.3, 'confere', 'le'], [0, 4.8, 7.3, 'baixa', 'esc'], [1, 6.2, 8.9, 'baixa', 'esc']],
+                 estoque: [[0, 1], [7.2, 0], [8.6, -1]], fim: ['200', '200'], txt: 'As duas conferem antes de qualquer uma baixar: estoque −1, a loja vendeu um vaso que não existia.' },
+      atomica: { blocos: [[0, 0.3, 4.6, 'confere+baixa', 'at'], [1, 1.2, 1.6, '', 'esp'], [1, 4.8, 9.1, 'confere+baixa', 'at']],
+                 estoque: [[0, 1], [4.6, 0]], fim: ['200', '400'], txt: 'O banco faz as duas coisas numa operação só: a segunda compra encontra 0 vasos e recebe 400.' }
+    };
+    function desenha() {
+      timers.forEach(clearTimeout); timers = [];
+      f.querySelectorAll('[data-m]').forEach(function (b) { b.setAttribute('aria-pressed', b.dataset.m === modo ? 'true' : 'false'); });
+      var c = CENA[modo], X = function (t) { return 62 + t * 19; }, Y = [26, 70];
+      var svg = '<svg viewBox="0 0 360 128" role="img" aria-label="' + esc(c.txt) + '">' +
+        '<text x="0" y="' + (Y[0] + 4) + '" class="dv-fig-who">Cliente A</text><text x="0" y="' + (Y[1] + 4) + '" class="dv-fig-who">Cliente B</text>' +
+        '<line x1="62" x2="252" y1="104" y2="104" class="dv-fig-ax"/><text x="62" y="120" class="dv-fig-t">tempo →</text>';
+      c.blocos.forEach(function (b, k) {
+        var x = X(b[1]), w = Math.max(6, X(b[2]) - x), y = Y[b[0]];
+        if (b[4] === 'esp') { svg += '<line x1="' + X(1.2) + '" x2="' + X(4.8) + '" y1="' + y + '" y2="' + y + '" class="dv-fig-wait" style="--d:' + (b[1] * 0.18) + 's"/><text x="' + X(3) + '" y="' + (y - 9) + '" text-anchor="middle" class="dv-fig-t dv-fig-in" style="--d:' + (b[1] * 0.18) + 's">espera a 1ª</text>'; return; }
+        svg += '<g class="dv-fig-in" style="--d:' + (b[1] * 0.18) + 's"><rect x="' + x + '" y="' + (y - 11) + '" width="' + w + '" height="22" rx="6" class="dv-fig-b is-' + b[4] + '"/>' +
+          '<text x="' + (x + w / 2) + '" y="' + (y + 4) + '" text-anchor="middle" class="dv-fig-bt">' + b[3] + '</text></g>';
+      });
+      c.fim.forEach(function (st, k) {
+        svg += '<g class="dv-fig-in" style="--d:' + (1.75) + 's"><rect x="258" y="' + (Y[k] - 11) + '" width="34" height="22" rx="11" class="dv-fig-st s' + st[0] + '"/><text x="275" y="' + (Y[k] + 4) + '" text-anchor="middle" class="dv-fig-stt">' + st + '</text></g>';
+      });
+      svg += '<rect x="302" y="22" width="56" height="58" rx="10" class="dv-fig-box"/><text x="330" y="38" text-anchor="middle" class="dv-fig-t">estoque</text><text x="330" y="68" text-anchor="middle" class="dv-fig-n">1</text></svg>';
+      f.querySelector('.dv-fig-svg').innerHTML = svg;
+      var n = f.querySelector('.dv-fig-n'), cap = f.querySelector('figcaption');
+      cap.textContent = '';
+      var red = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      c.estoque.forEach(function (e) {
+        timers.push(setTimeout(function () { n.textContent = e[1] < 0 ? '−' + Math.abs(e[1]) : e[1]; n.classList.toggle('is-neg', e[1] < 0); n.classList.remove('is-pop'); void n.offsetWidth; n.classList.add('is-pop'); }, red ? 0 : e[0] * 180));
+      });
+      timers.push(setTimeout(function () { cap.textContent = c.txt; cap.className = modo === 'atomica' ? 'is-ok' : 'is-bad'; }, red ? 0 : 1900));
+    }
+    f.querySelectorAll('[data-m]').forEach(function (b) { b.addEventListener('click', function () { modo = b.dataset.m; desenha(); }); });
+    container.appendChild(f);
+    desenha();
+  }
+
   function painel(container) {
     function sec(title) { var s = document.createElement('section'); s.className = 'p-sec'; var h3 = document.createElement('h3'); h3.textContent = title; s.appendChild(h3); container.appendChild(s); return s; }
     var a = sec('O que entreguei');
@@ -668,8 +776,10 @@
       e.appendChild(b);
     });
     var r = sec('A decisão principal');
-    var p = node('<div class="dv-decision"><p>Na venda, o banco confere o estoque e diminui numa única operação. Assim duas compras do último vaso ao mesmo tempo nunca deixam o estoque negativo.</p><button class="mk-btn" type="button">Ver as duas compras ao vivo →</button></div>');
-    p.querySelector('button').addEventListener('click', function () { abrir('api', '#dv-race'); });
+    var p = node('<div class="dv-decision"><p>Na venda, o banco confere o estoque e diminui numa única operação. Assim duas compras do último vaso ao mesmo tempo nunca deixam o estoque negativo.</p></div>');
+    decisaoFig(p);
+    p.appendChild(node('<button class="mk-btn" type="button">Disparar as duas compras de verdade →</button>'));
+    p.querySelector('.mk-btn').addEventListener('click', function () { abrir('api', '#dv-race'); });
     r.appendChild(p);
     var l = sec('Links');
     l.appendChild(node('<div class="mk-actions"><a class="mk-btn" href="' + LINKS.repositorio + '" target="_blank" rel="noopener noreferrer">GitHub ↗</a><a class="mk-btn" href="' + PDF_URL + '" download="' + PDF_URL + '">Relatório PDF ↓</a></div>'));

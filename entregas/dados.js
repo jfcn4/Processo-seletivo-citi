@@ -127,23 +127,13 @@
       '</header>' +
       '<div class="dx-body"><div class="dx-wrap" id="dx-content"></div></div>';
     body = root.querySelector('#dx-content');
-    // ao rolar para baixo, o cabeçalho encolhe (sem sumir); volta ao tamanho normal perto do topo
+    // o cabeçalho já é compacto e fica fixo, sem encolher ao rolar; só mede a altura para reservar o espaço
     var scroller = root.querySelector('.dx-body'), topEl = root.querySelector('.dx-top');
-    scroller.addEventListener('scroll', function () {
-      var y = scroller.scrollTop, compact = root.classList.contains('is-compact');
-      if (!compact && y > 60) root.classList.add('is-compact');
-      else if (compact && y < 20) root.classList.remove('is-compact');
-    }, { passive: true });
-    // mede a altura do cabeçalho aberto (sem animação) para reservar esse espaço no topo do conteúdo
     root.measureHead = function () {
       if (root.hidden) return;
-      var was = root.classList.contains('is-compact');
-      root.classList.add('dx-notrans'); root.classList.remove('is-compact');
       root.style.setProperty('--dx-head', topEl.offsetHeight + 'px');
-      root.classList.add('is-compact'); root.headCompact = topEl.offsetHeight; root.classList.remove('is-compact');
+      root.headCompact = topEl.offsetHeight;
       topEl.style.right = (scroller.offsetWidth - scroller.clientWidth) + 'px';   // não cobre a barra de rolagem
-      if (was) root.classList.add('is-compact');
-      void topEl.offsetHeight; root.classList.remove('dx-notrans');
     };
     window.addEventListener('resize', root.measureHead);
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(root.measureHead);
@@ -488,7 +478,9 @@
         b.style.setProperty('--d', depth); b.innerHTML = ICON_DIR + '<span></span>'; b.querySelector('span').textContent = name;
         nav.appendChild(b);
         var holder = node('<div></div>'); nav.appendChild(holder);
-        b.setAttribute('aria-expanded', 'true');
+        // a pasta de prints (16 imagens) começa fechada, a não ser que o arquivo aberto esteja nela
+        var fechada = /^prints$/i.test(name) && S.file.indexOf(prefix + name + '/') !== 0;
+        b.setAttribute('aria-expanded', fechada ? 'false' : 'true'); holder.hidden = fechada;
         b.addEventListener('click', function () { var open = b.getAttribute('aria-expanded') === 'true'; b.setAttribute('aria-expanded', open ? 'false' : 'true'); holder.hidden = open; });
         var save = nav; nav = holder; walk(d.dirs[name], depth + 1, prefix + name + '/'); nav = save;
       });

@@ -67,5 +67,64 @@
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', observar); else observar();
 
+  /* ---------- convite para rolar ----------
+     Quando há mais conteúdo abaixo, a borda de baixo esmaece (o último bloco aparece pela metade)
+     e, enquanto a pessoa ainda não rolou, um botão "Role para ver mais" aparece no rodapé.
+     Vale para o painel lateral (inclusive o do Sol) e para todas as entregas abertas em tela cheia.
+     No celular, a folha em meia altura já deixa o conteúdo cortado, então o convite só entra na altura cheia. */
+  var REDUZ = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  function convite(sc, host, opts) {
+    if (!sc || sc.dataset.scue) return;
+    sc.dataset.scue = '1';
+    var cue = document.createElement('div');
+    cue.className = 'scue' + (opts.cls ? ' ' + opts.cls : ''); cue.setAttribute('aria-hidden', 'true');
+    cue.innerHTML = '<div class="scue-fade"></div><button type="button" class="scue-btn" tabindex="-1">Role para ver mais <span>↓</span></button>';
+    host.appendChild(cue);
+    var btn = cue.querySelector('.scue-btn'), pend = false;
+    btn.addEventListener('click', function () { sc.scrollBy({ top: Math.round(sc.clientHeight * 0.7), behavior: REDUZ ? 'auto' : 'smooth' }); });
+    function medir() {
+      pend = false;
+      var ativo = opts.ativo ? opts.ativo() : true;
+      var resta = sc.scrollHeight - sc.clientHeight - sc.scrollTop;
+      var temMais = ativo && sc.scrollHeight - sc.clientHeight > 48 && resta > 24;
+      if (opts.pos && temMais) opts.pos(cue);
+      cue.classList.toggle('is-fade', temMais);
+      cue.classList.toggle('is-btn', temMais && sc.scrollTop < 40 && resta > 140);
+    }
+    function agendar() { if (!pend) { pend = true; requestAnimationFrame(medir); } }
+    sc.addEventListener('scroll', agendar, { passive: true });
+    window.addEventListener('resize', agendar);
+    if (window.MutationObserver) new MutationObserver(agendar).observe(opts.observar || sc, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'hidden', 'open'] });
+    sc.addEventListener('load', agendar, true);   // imagens e iframes que chegam depois
+    if (opts.pos) sc.addEventListener('transitionend', agendar);
+    setInterval(function () { if (document.visibilityState === 'visible') agendar(); }, 1200);   // rede de segurança (vídeo, pdf, fontes)
+    agendar();
+    return agendar;
+  }
+  var OVERLAYS = { mk: '.mk-body', gg: '.mk-body', pd: '.mk-body', cm: '.mk-body', dv: '.mk-body', dx: '.dx-body' };
+  function ligarOverlay(el) {
+    var sel = el && el.id && OVERLAYS[el.id];
+    if (!sel) return;
+    var sc = el.querySelector(sel);
+    convite(sc, el, { cls: 'scue-ov', ativo: function () { return !el.hidden; } });
+  }
+  function ligarTudo() {
+    var panel = document.getElementById('panel');
+    if (panel) convite(panel, document.body, {
+      cls: 'scue-panel', observar: panel,
+      ativo: function () {
+        var b = document.body;
+        if (!panel.classList.contains('is-open') || b.classList.contains('has-overlay')) return false;
+        return !b.classList.contains('is-sheet') || panel.classList.contains('is-full');
+      },
+      pos: function (cue) { cue.style.setProperty('--scue', (getComputedStyle(panel).getPropertyValue('--accent') || '').trim() || '#4fe577'); var r = panel.getBoundingClientRect(); cue.style.left = r.left + 'px'; cue.style.width = r.width + 'px'; cue.style.top = (r.top + panel.clientHeight - 0) + 'px'; }
+    });
+    Object.keys(OVERLAYS).forEach(function (id) { ligarOverlay(document.getElementById(id)); });
+    if (window.MutationObserver) new MutationObserver(function (ms) {
+      ms.forEach(function (m) { Array.prototype.forEach.call(m.addedNodes, ligarOverlay); });
+    }).observe(document.body, { childList: true });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ligarTudo); else ligarTudo();
+
   window.CITI_RESUMO = resumo;
 })();

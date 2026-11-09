@@ -342,7 +342,8 @@
       var c = node('<div class="gg-pl-acao' + (a.causa ? ' is-causa' : '') + '">' +
         '<button type="button" class="gg-pl-tog" data-i="' + i + '" aria-pressed="false"><span class="gg-pl-n">' + a.n + '</span><span class="gg-pl-nm"><b>' + esc(a.nome) + '</b>' + (a.causa ? '<em>prioridade · ataca a causa</em>' : '') + '</span><span class="gg-pl-sw" aria-hidden="true"></span></button>' +
         '<p>' + esc(a.desc) + '</p>' +
-        '<dl><div><dt>Responsável</dt><dd>' + esc(a.resp) + '</dd></div><div><dt>Prazo</dt><dd>' + a.prazo + '</dd></div><div><dt>Como medir</dt><dd>' + esc(a.medir) + '</dd></div></dl></div>');
+        '<p class="gg-pl-meta"><span>' + esc(a.resp) + '</span><span>' + a.prazo + '</span></p>' +
+        '<p class="gg-pl-medir"><b>Meta</b>' + esc(a.medir) + '</p></div>');
       if (a.n === 4) c.appendChild(node('<details class="gg-pl-roteiro"><summary>Ver o roteiro da conversa</summary>' +
         '<p><b>Como eu abriria.</b> “Estou conversando com todo mundo do Aurora para entender como foi o projeto para cada pessoa e o que precisa mudar no próximo. Não é avaliação de desempenho. O que você me contar fica entre nós; se algo virar mudança para o time, levo sem dizer de onde veio e só com o seu ok.”</p><ol>' +
         '<li>“Olhando para essas 12 semanas, como foi o projeto para você?” <span>Deixa a pessoa escolher por onde começar.</span></li>' +

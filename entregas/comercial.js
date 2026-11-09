@@ -331,9 +331,11 @@
     var body = node('<div class="cm-rot-body" aria-live="polite"></div>'); c.appendChild(body);
     container.appendChild(c);
     function cards(k) {
-      return '<p class="cm-note">' + INTRO[k] + '</p><div class="cm-qs">' + PERG[k].map(function (q) {
-        return '<article class="cm-q' + (pergSel === q[0] ? ' is-hot' : '') + '" id="cm-q-' + q[0] + '"><span class="cm-q-id">' + q[0] + '</span><div><p class="cm-q-p">“' + esc(q[1]) + '”</p>' +
-          '<dl><div><dt>' + COLS[k] + '</dt><dd>' + esc(q[2]) + '</dd></div><div><dt>Informação para a proposta</dt><dd>' + esc(q[3]) + '</dd></div></dl></div></article>';
+      // cada pergunta é uma sanfona: a pergunta à vista, o porquê ao abrir (a primeira já vem aberta)
+      return '<p class="cm-note">' + INTRO[k] + ' <span class="cm-q-dica">Abra uma pergunta para ver o que ela testa.</span></p><div class="cm-qs">' + PERG[k].map(function (q, i) {
+        var aberta = pergSel ? pergSel === q[0] : i === 0;
+        return '<details class="cm-q' + (pergSel === q[0] ? ' is-hot' : '') + '" id="cm-q-' + q[0] + '"' + (aberta ? ' open' : '') + '><summary><span class="cm-q-id">' + q[0] + '</span><p class="cm-q-p">“' + esc(q[1]) + '”</p><i class="cm-q-chev" aria-hidden="true"></i></summary>' +
+          '<dl><div><dt>' + COLS[k] + '</dt><dd>' + esc(q[2]) + '</dd></div><div><dt>Informação para a proposta</dt><dd>' + esc(q[3]) + '</dd></div></dl></details>';
       }).join('') + '</div>';
     }
     function draw() {

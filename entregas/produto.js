@@ -123,10 +123,10 @@
   }
 
   /* ================= O PROBLEMA ================= */
-  var palpite = null;
+  var palpite = 'esq';   // abre já mostrando o palpite do Ricardo (esquecimento) contra a pesquisa
   function quiz(container) {
     var c = node('<div class="mk-card pd-quiz"></div>');
-    c.innerHTML = '<p class="mk-label">Antes de ver os dados · por que você acha que os pacientes faltam?</p>';
+    c.innerHTML = '<p class="mk-label">Por que os pacientes faltam? · escolha um palpite e compare com a pesquisa</p>';
     var opts = node('<div class="pd-opts" role="group" aria-label="Seu palpite"></div>');
     PALPITES.forEach(function (p) {
       var b = node('<button type="button"></button>'); b.textContent = p.nome; b.dataset.g = p.g;
@@ -149,9 +149,7 @@
       if (anim && !REDUCED) requestAnimationFrame(function () { requestAnimationFrame(function () { bars.querySelectorAll('i').forEach(function (i) { i.style.width = i.dataset.w + '%'; }); }); });
       if (!rev) { out.innerHTML = ''; return; }
       var p = PALPITES.filter(function (x) { return x.g === palpite; })[0];
-      out.innerHTML = '<p>' + esc(p.txt) + '</p><p class="pd-concl"><b>A conclusão do grupo:</b> a causa primária é a ruptura na renovação do convênio na 5ª sessão, somada à percepção de cura precoce. O esquecimento é secundário, então lembretes atacam a causa errada.</p>' +
-        '<button type="button" class="mk-btn pd-again">Tentar outro palpite</button>';
-      out.querySelector('.pd-again').addEventListener('click', function () { palpite = null; draw(false); opts.querySelector('button').focus(); });
+      out.innerHTML = '<p>' + esc(p.txt) + '</p><p class="pd-concl"><b>A conclusão do grupo:</b> a causa primária é a ruptura na renovação do convênio na 5ª sessão, somada à percepção de cura precoce. O esquecimento é secundário, então lembretes atacam a causa errada.</p>';
     }
     draw(false);
   }
@@ -221,7 +219,7 @@
       '<div class="mk-card"><p class="mk-label">Divergência 2 · a agilidade do convênio</p><div class="pd-vs"><div><span>Ricardo afirma</span><b>O convênio libera as sessões rapidamente.</b></div><div class="is-data"><span>Dados e entrevistas</span><b>Joana e Dona Célia relatam de 3 a 10 dias úteis, e as faltas saltam de 18% para 44% na 6ª sessão.</b></div></div></div></div>'));
   }
 
-  var causaSel = 'todas', vozesDraw = null;
+  var causaSel = 'todas', vozesDraw = null, vozesTodas = false, VOZES_MIN = 6;
   function vozes(container) {
     var c = node('<div class="mk-card pd-vozes"><p class="mk-label">O que disseram nas entrevistas · filtre pela causa</p></div>');
     var g = seg(CAUSAS, 'Causa', 'is-sm');
@@ -232,10 +230,14 @@
     function draw() {
       marcar(g, causaSel);
       var sel = FALAS.filter(function (f) { return causaSel === 'todas' || f.c.indexOf(causaSel) >= 0; });
+      var resto = vozesTodas ? 0 : Math.max(0, sel.length - VOZES_MIN);
+      if (resto) sel = sel.slice(0, VOZES_MIN);
       list.innerHTML = sel.map(function (f) {
         return '<figure class="pd-fala is-' + f.q + '"><span class="pd-av" aria-hidden="true">' + f.q + '</span><div><blockquote>“' + esc(f.t) + '”</blockquote>' +
           '<figcaption><b>' + QUEM[f.q].nome + '</b> · ' + f.c.map(function (k) { return CAUSAS.filter(function (x) { return x[0] === k; })[0][1].toLowerCase(); }).join(', ') + '</figcaption></div></figure>';
-      }).join('');
+      }).join('') + (resto ? '<button type="button" class="mk-btn pd-mais">Ver as outras ' + resto + ' falas ↓</button>' : '');
+      var mais = list.querySelector('.pd-mais');
+      if (mais) mais.addEventListener('click', function () { vozesTodas = true; draw(); });
     }
     g.querySelectorAll('button').forEach(function (b) { b.addEventListener('click', function () { causaSel = b.dataset.v; draw(); }); });
     vozesDraw = draw; draw();
@@ -273,25 +275,37 @@
   }
   // a partir de outra aba: abre a aba do protótipo e mostra a tela pedida
   function irProto(seq) { setAba('prototipo'); protoRun(seq); }
-  var rastroQuem = 'todas';
+  var rastroQuem = 'todas', rastroSel = 0;
   function rastro(container) {
     var c = node('<div class="mk-card pd-rastro"><p class="mk-label">Da entrevista à tela · cada funcionalidade nasceu de uma fala</p>' +
-      '<p class="cm-note">Antes de desenhar o protótipo, liguei o que a Joana e a Dona Célia pediram, quase com essas palavras, a uma tela da Trilha 10. Clique em “Ver no protótipo” para abrir a tela certa na aba do protótipo.</p></div>');
+      '<p class="cm-note">Antes de desenhar o protótipo, liguei o que a Joana e a Dona Célia pediram, quase com essas palavras, a uma tela da Trilha 10. Escolha uma fala para ver a tela que ela virou.</p></div>');
     var g = seg([['todas', 'Todas'], ['J', 'Joana'], ['C', 'Dona Célia']], 'Quem falou', 'is-sm');
     c.appendChild(g);
-    var list = node('<ol class="pd-rastro-l"></ol>'); c.appendChild(list);
+    var grid = node('<div class="pd-rx"><ol class="pd-rx-l" role="list"></ol><div class="pd-rx-d" aria-live="polite"></div></div>');
+    var list = grid.querySelector('ol'), det = grid.querySelector('.pd-rx-d');
+    c.appendChild(grid);
     container.appendChild(c);
+    var estreito = window.matchMedia('(max-width: 760px)');
     function draw() {
       marcar(g, rastroQuem);
-      list.innerHTML = RASTRO.map(function (r, i) {
-        if (rastroQuem !== 'todas' && r.q !== rastroQuem) return '';
-        return '<li class="is-' + r.q + '"><div class="pd-r-fala"><span class="pd-av" aria-hidden="true">' + r.q + '</span><blockquote>“' + esc(r.t) + '”<cite>' + QUEM[r.q].nome + '</cite></blockquote></div>' +
-          '<span class="pd-r-seta" aria-hidden="true">→</span>' +
-          '<div class="pd-r-tela"><b>' + esc(r.f) + '</b><p>' + esc(r.d) + '</p><button type="button" class="mk-btn" data-i="' + i + '">Ver no protótipo →</button></div></li>';
+      var vis = RASTRO.map(function (r, i) { return i; }).filter(function (i) { return rastroQuem === 'todas' || RASTRO[i].q === rastroQuem; });
+      if (vis.indexOf(rastroSel) < 0) rastroSel = vis[0];
+      list.innerHTML = vis.map(function (i) {
+        var r = RASTRO[i];
+        return '<li class="is-' + r.q + (i === rastroSel ? ' is-on' : '') + '"><button type="button" data-i="' + i + '" aria-pressed="' + (i === rastroSel) + '"><span class="pd-av" aria-hidden="true">' + r.q + '</span><q>' + esc(r.t) + '</q><span class="pd-rx-arrow" aria-hidden="true">→</span></button></li>';
       }).join('');
-      list.querySelectorAll('[data-i]').forEach(function (b) { b.addEventListener('click', function () { irProto(RASTRO[+b.dataset.i].ir); }); });
+      var r = RASTRO[rastroSel];
+      det.innerHTML = '<p class="pd-rx-de"><span class="pd-av" aria-hidden="true">' + r.q + '</span>' + QUEM[r.q].nome + ' pediu</p>' +
+        '<blockquote>“' + esc(r.t) + '”</blockquote><p class="pd-rx-vira">virou a tela</p><b class="pd-rx-f">' + esc(r.f) + '</b><p class="pd-rx-desc">' + esc(r.d) + '</p>' +
+        '<button type="button" class="mk-btn is-main" data-ir>Ver no protótipo →</button>';
+      det.querySelector('[data-ir]').addEventListener('click', function () { irProto(r.ir); });
+      // no celular, o detalhe aparece logo abaixo da fala escolhida
+      var on = list.querySelector('li.is-on');
+      if (estreito.matches && on) on.appendChild(det); else if (det.parentNode !== grid) grid.appendChild(det);
+      list.querySelectorAll('[data-i]').forEach(function (b) { b.addEventListener('click', function () { rastroSel = +b.dataset.i; draw(); }); });
     }
     g.querySelectorAll('button').forEach(function (b) { b.addEventListener('click', function () { rastroQuem = b.dataset.v; draw(); }); });
+    if (estreito.addEventListener) estreito.addEventListener('change', draw);
     draw();
   }
 
@@ -414,8 +428,14 @@
       trilha.innerHTML = h;
       trilha.className = 'pd-trilha is-' + fluxo;
       notas.innerHTML = asis
-        ? '<p><b>O que acontece hoje.</b> O convênio libera 5 sessões por vez. A renovação só é pedida quando elas acabam e leva de 3 a 10 dias úteis. O horário não fica reservado: Dona Célia esperou cerca de 10 dias, perdeu o horário das 10h e só sobraram 7h ou 18h. No mesmo momento a dor já passou, e ninguém explicou por que as últimas sessões importam.</p>'
-        : '<p><b>O que muda.</b> Na 2ª ou 3ª sessão o sistema avisa a recepção para pedir o laudo de evolução ao fisioterapeuta e solicitar a renovação; quando a 5ª termina, a 6ª já está autorizada e no mesmo horário. Entre as semanas 2 e 7, uma trilha de mensagens explica por que ir até a 10ª. Se alguém cancela com menos de 24h, a vaga é oferecida na hora para a lista de espera.</p>';
+        ? '<p class="pd-nt-h">O que acontece hoje</p><ul class="pd-nt is-asis">' +
+            '<li><b>Renovação tardia.</b> O convênio libera 5 sessões por vez; a renovação só é pedida quando elas acabam e leva de 3 a 10 dias úteis.</li>' +
+            '<li><b>Horário perdido.</b> O horário não fica reservado: Dona Célia esperou cerca de 10 dias, perdeu as 10h e só sobraram 7h ou 18h.</li>' +
+            '<li><b>A dor já passou.</b> No mesmo momento, ninguém explicou por que as últimas sessões importam.</li></ul>'
+        : '<p class="pd-nt-h">O que muda</p><ul class="pd-nt is-tobe">' +
+            '<li><b>Renovação na 2ª ou 3ª sessão.</b> O sistema avisa a recepção para pedir o laudo de evolução ao fisioterapeuta e solicitar a renovação: quando a 5ª termina, a 6ª já está autorizada, no mesmo horário.</li>' +
+            '<li><b>Por que ir até a 10ª.</b> Entre as semanas 2 e 7, uma trilha de mensagens explica.</li>' +
+            '<li><b>Lista de espera ativa.</b> Se alguém cancela com menos de 24h, a vaga é oferecida na hora.</li></ul>';
     }
     g.querySelectorAll('button').forEach(function (b) { b.addEventListener('click', function () { fluxo = b.dataset.v; draw(); }); });
     draw();
@@ -655,14 +675,14 @@
     var a = sec('Nossa resposta');
     a.appendChild(node('<div class="pd-answer"><strong>Não é esquecimento: é a renovação do convênio</strong><span>R$ 18.225,90 perdidos por mês. A falta do convênio salta de 18% para 44% na 6ª sessão. Proposta: renovação antecipada na 3ª sessão e lista de espera ativa, por R$ 18 mil em 10 semanas, com payback de ~2,1 meses.</span></div>'));
     var p = sec('Minha parte: o protótipo');
-    p.appendChild(node('<p class="pd-proto-p">Trilha 10: plataforma web com WhatsApp automatizado, com telas para o paciente, a recepção, o fisioterapeuta e o dono. Dá para usar, e tem uma história guiada de 1 minuto.</p>'));
-    var pa = node('<div class="mk-actions"><button class="mk-btn is-main" type="button">▶ Usar o protótipo</button><a class="mk-btn" href="' + PROTO + '" target="_blank" rel="noopener">Nova aba ↗</a></div>');
+    var pa = node('<div class="pd-proto-row"><button class="pd-proto-go" type="button"><span class="pd-proto-play" aria-hidden="true">▶</span><span><b>Usar o protótipo</b><small>Trilha 10 · história guiada de 1 min</small></span></button>' +
+      '<a class="mk-btn" href="' + PROTO + '" target="_blank" rel="noopener" aria-label="Abrir o protótipo em nova aba">↗</a></div>');
     pa.querySelector('button').addEventListener('click', function () { abrir('prototipo'); });
     p.appendChild(pa);
     var s = sec('O salto da 6ª sessão');
     grafSessoes(s, true);
-    var sb = node('<div class="mk-actions"><button class="mk-btn" type="button">Adivinhe a causa das faltas →</button></div>');
-    sb.querySelector('button').addEventListener('click', function () { palpite = null; abrir('problema'); });
+    var sb = node('<div class="mk-actions"><button class="mk-btn" type="button">Por que os pacientes faltam? →</button></div>');
+    sb.querySelector('button').addEventListener('click', function () { if (!palpite) palpite = 'esq'; abrir('problema'); });
     s.appendChild(sb);
     var g = sec('Entrega em grupo');
     grupo(g, true);

@@ -81,6 +81,8 @@
     cue.innerHTML = '<div class="scue-fade"></div><button type="button" class="scue-btn" tabindex="-1">Role para ver mais <span>↓</span></button>';
     host.appendChild(cue);
     var btn = cue.querySelector('.scue-btn'), pend = false;
+    var visto = false;   // a pessoa já chegou perto do fim deste conteúdo: o botão não volta mais
+    function raso(n) { for (var d = 0; n && d <= 2; d++) { if (n === sc) return true; n = n.parentNode; } return false; }
     btn.addEventListener('click', function () { sc.scrollBy({ top: Math.round(sc.clientHeight * 0.7), behavior: REDUZ ? 'auto' : 'smooth' }); });
     function medir() {
       pend = false;
@@ -88,13 +90,21 @@
       var resta = sc.scrollHeight - sc.clientHeight - sc.scrollTop;
       var temMais = ativo && sc.scrollHeight - sc.clientHeight > 48 && resta > 24;
       if (opts.pos && temMais) opts.pos(cue);
+      if (ativo && resta < 160) visto = true;
       cue.classList.toggle('is-fade', temMais);
-      cue.classList.toggle('is-btn', temMais && sc.scrollTop < 40 && resta > 140);
+      cue.classList.toggle('is-btn', temMais && !visto && sc.scrollTop < 40 && resta > 140);
     }
     function agendar() { if (!pend) { pend = true; requestAnimationFrame(medir); } }
     sc.addEventListener('scroll', agendar, { passive: true });
     window.addEventListener('resize', agendar);
-    if (window.MutationObserver) new MutationObserver(agendar).observe(opts.observar || sc, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'hidden', 'open'] });
+    // conteúdo novo (outra aba, outro planeta) troca os filhos perto da raiz: aí o convite pode voltar
+    if (window.MutationObserver) new MutationObserver(function (ms) {
+      for (var i = 0; i < ms.length; i++) {
+        var m = ms[i];
+        if (m.type === 'childList' && raso(m.target) && Array.prototype.some.call(m.removedNodes, function (n) { return n.nodeType === 1; })) { visto = false; break; }
+      }
+      agendar();
+    }).observe(opts.observar || sc, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'hidden', 'open'] });
     sc.addEventListener('load', agendar, true);   // imagens e iframes que chegam depois
     if (opts.pos) sc.addEventListener('transitionend', agendar);
     setInterval(function () { if (document.visibilityState === 'visible') agendar(); }, 1200);   // rede de segurança (vídeo, pdf, fontes)

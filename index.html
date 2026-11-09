@@ -131,6 +131,13 @@ body.is-focused .hud-bottom .nav { pointer-events: none; }
 .label.is-waking .l-meta { color: var(--citi); }
 body.is-focused .label { opacity: 0; pointer-events: none; }
 
+/* ---------- nome da nave (Inovação) e do asteroide (Institucional): só no clique ---------- */
+.nome-flutua { position: absolute; left: 0; top: 0; pointer-events: none; white-space: nowrap; opacity: 0;
+  font-family: var(--f-display); font-size: 13px; font-weight: 600; letter-spacing: .05em; text-shadow: 0 0 14px rgba(0,0,0,.95), 0 0 4px rgba(0,0,0,.8); }
+.nome-flutua.is-on { animation: nome-on 2.6s ease both; }
+@keyframes nome-on { 0% { opacity: 0; margin-top: 6px; } 12% { opacity: 1; margin-top: 0; } 75% { opacity: 1; } 100% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { @keyframes nome-on { 0%, 80% { opacity: 1; } 100% { opacity: 0; } } }
+
 /* ---------- Painel ---------- */
 #panel {
   position: fixed; z-index: 8; top: 0; right: 0; bottom: 0; width: min(460px, 100%);
@@ -2563,7 +2570,7 @@ function pick(e) {
     var o = h.object, key = o.userData.key; if (seen[key]) return; seen[key] = true;
     o.getWorldPosition(pickV); o.getWorldScale(pickS);
     var dist = camera.position.distanceTo(pickV);
-    var rPx = (key === 'sol' ? SUN_R : planets[key].R) * pickS.x * pxU / dist;
+    var rPx = (key === 'sol' ? SUN_R : planets[key] ? planets[key].R : 1.2) * pickS.x * pxU / dist;
     pickV.project(camera);
     var d = Math.hypot((pickV.x * 0.5 + 0.5) * W - e.clientX, (-pickV.y * 0.5 + 0.5) * H - e.clientY);
     if (d - rPx < bestScore) { bestScore = d - rPx; best = key; }
@@ -2585,6 +2592,8 @@ canvas.addEventListener('pointerup', function (e) {
   if (state.mode === 'focus' && e.pointerType !== 'mouse' && Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.4) { step(dx < 0 ? 1 : -1); return; }
   if (moved > 6 || state.mode === 'intro' || state.mode === 'warp') return;
   var k = pick(e);
+  if (k === 'inova') { haptic(); mostrarNome('inova', 'Inovação', '#c9ffdc'); return; }
+  if (k === 'institucional') { haptic(); mostrarNome('vaga', 'Institucional', '#e6dccb'); return; }
   if (k) { haptic(); focusOn(k); }
   else if (!state.focus && conNear(e.clientX, e.clientY, e.pointerType === 'mouse' ? 20 : 30)) revealConstellation(true);
   else if (state.focus) unfocus();
@@ -2787,6 +2796,222 @@ else {
 /* =========================================================
    Loop
    ========================================================= */
+
+/* =========================================================
+   Inovação: uma nave que viaja de planeta em planeta
+   Inovação não tem órbita fixa: passa por todas as áreas. A nave visita os seis planetas,
+   rodeia cada um por alguns segundos e segue viagem. O nome só aparece quando alguém clica nela.
+   ========================================================= */
+var ROTA = ['dados', 'marketing', 'dev', 'gente', 'produto', 'comercial'];
+var inovaKit = (function () {
+  // Casco (UV do torno: u dá a volta, 0 = barriga, 0,5 = topo; v vai da cauda ao bico).
+  // Branco-pérola com painéis e rebites, barriga grafite, faixa verde do CITi e escotilhas nas laterais.
+  var W = 1024, H = 512, c = document.createElement('canvas'); c.width = W; c.height = H;
+  var x = c.getContext('2d'), r = rng(77);
+  var g = x.createLinearGradient(0, 0, W, 0);
+  g.addColorStop(0, '#3a4248'); g.addColorStop(0.14, '#59636a'); g.addColorStop(0.22, '#d9e1e5'); g.addColorStop(0.5, '#f6f9fa');
+  g.addColorStop(0.78, '#d9e1e5'); g.addColorStop(0.86, '#59636a'); g.addColorStop(1, '#3a4248');
+  x.fillStyle = g; x.fillRect(0, 0, W, H);
+  x.strokeStyle = 'rgba(52,64,72,0.38)'; x.lineWidth = 1.5;
+  [0.12, 0.27, 0.42, 0.58, 0.8].forEach(function (v) { x.beginPath(); x.moveTo(0, (1 - v) * H); x.lineTo(W, (1 - v) * H); x.stroke(); });   // emendas em anel
+  [0.375, 0.5, 0.625].forEach(function (u) { x.beginPath(); x.moveTo(u * W, 0); x.lineTo(u * W, H); x.stroke(); });                        // emendas no comprimento
+  x.fillStyle = 'rgba(52,64,72,0.5)';
+  [0.12, 0.27, 0.42, 0.58].forEach(function (v) { for (var u = 0; u < W; u += 14) x.fillRect(u, (1 - v) * H + 4, 2, 2); });                  // rebites
+  for (var k = 0; k < 26; k++) { x.fillStyle = 'rgba(255,255,255,' + (0.2 + r() * 0.25) + ')'; x.fillRect(W * (0.3 + r() * 0.4), r() * H, 18 + r() * 50, 6 + r() * 18); }
+  x.fillStyle = 'rgba(30,36,40,0.22)'; for (var m = 0; m < 18; m++) x.fillRect(W * (0.25 + r() * 0.5), r() * H, 10 + r() * 30, 3 + r() * 6);   // desgaste
+  x.fillStyle = '#25b852'; x.fillRect(0, (1 - 0.33) * H, W, 16); x.fillStyle = '#4fe577'; x.fillRect(0, (1 - 0.33) * H + 16, W, 5);           // faixa do CITi
+  x.fillStyle = '#1b2125'; x.fillRect(0, (1 - 0.06) * H, W, 10);                                                                            // anel perto dos bocais
+  x.fillStyle = '#4fe577'; x.font = 'bold 34px sans-serif'; x.textAlign = 'center';                                                         // "CITi" nas laterais
+  [0.25, 0.75].forEach(function (u) { x.save(); x.translate(u * W, (1 - 0.2) * H); x.fillText('CITi', 0, 0); x.restore(); });
+  // escotilhas: uma fileira em cada lateral (u = 0,25 e 0,75)
+  var por = [];
+  [0.25, 0.75].forEach(function (u) { for (var v = 0.46; v <= 0.72; v += 0.065) por.push([u * W, (1 - v) * H]); });
+  por.forEach(function (q) { x.fillStyle = '#1a2328'; x.beginPath(); x.arc(q[0], q[1], 9, 0, Math.PI * 2); x.fill(); x.fillStyle = '#0c1418'; x.beginPath(); x.arc(q[0], q[1], 6, 0, Math.PI * 2); x.fill(); });
+  var map = new THREE.CanvasTexture(c);
+  var ec = document.createElement('canvas'); ec.width = W; ec.height = H;
+  var y = ec.getContext('2d'); y.fillStyle = '#000'; y.fillRect(0, 0, W, H);
+  y.fillStyle = '#3dd86a'; y.fillRect(0, (1 - 0.33) * H + 16, W, 5);
+  por.forEach(function (q) { var gg = y.createRadialGradient(q[0], q[1], 0, q[0], q[1], 6); gg.addColorStop(0, '#fff6d8'); gg.addColorStop(1, '#ffb45a'); y.fillStyle = gg; y.beginPath(); y.arc(q[0], q[1], 5.5, 0, Math.PI * 2); y.fill(); });
+  var em = new THREE.CanvasTexture(ec);
+  map.anisotropy = em.anisotropy = 8;
+  var hull = new THREE.MeshStandardMaterial({ map: map, emissiveMap: em, emissive: new THREE.Color(0xffffff), emissiveIntensity: 1.2, metalness: 0.18, roughness: 0.42 });
+  // asas: painéis, borda de ataque escura e ponta verde (UV da extrusão = coordenadas do desenho da asa)
+  var wc = document.createElement('canvas'); wc.width = 256; wc.height = 256;
+  var z = wc.getContext('2d');
+  var wg = z.createLinearGradient(0, 0, 256, 0); wg.addColorStop(0, '#e9eef1'); wg.addColorStop(1, '#c4ced4');
+  z.fillStyle = wg; z.fillRect(0, 0, 256, 256);
+  z.strokeStyle = 'rgba(52,64,72,0.35)'; z.lineWidth = 2;
+  [64, 128, 192].forEach(function (u) { z.beginPath(); z.moveTo(u, 0); z.lineTo(u, 256); z.stroke(); });
+  z.fillStyle = '#2b3338'; z.fillRect(0, 0, 256, 26);                       // borda de ataque
+  z.fillStyle = '#25b852'; z.fillRect(222, 0, 34, 256);                     // ponta verde
+  var wingTex = new THREE.CanvasTexture(wc);
+  wingTex.wrapS = wingTex.wrapT = THREE.ClampToEdgeWrapping;
+  wingTex.repeat.set(1 / 1.4, -1 / 1.15); wingTex.offset.set(0, 0.3 / 1.15);
+  var wing = new THREE.MeshStandardMaterial({ map: wingTex, metalness: 0.15, roughness: 0.45 });
+  var trim = new THREE.MeshStandardMaterial({ color: 0x232a2f, metalness: 0.6, roughness: 0.38 });
+  // cabine: vidro escuro com um reflexo desenhado (sem mapa de ambiente, o brilho vem da textura)
+  var gc = document.createElement('canvas'); gc.width = 128; gc.height = 64;
+  var gx = gc.getContext('2d'), gl = gx.createLinearGradient(0, 0, 0, 64);
+  gl.addColorStop(0, '#0a1d26'); gl.addColorStop(0.5, '#123846'); gl.addColorStop(1, '#06121a'); gx.fillStyle = gl; gx.fillRect(0, 0, 128, 64);
+  // reflexo em faixa no sentido do comprimento, de um lado só (no UV da esfera: u dá a volta, v vai do topo à borda)
+  var hl = gx.createLinearGradient(30, 0, 58, 0); hl.addColorStop(0, 'rgba(220,250,255,0)'); hl.addColorStop(0.5, 'rgba(220,250,255,0.75)'); hl.addColorStop(1, 'rgba(220,250,255,0)');
+  gx.fillStyle = hl; gx.fillRect(30, 8, 28, 40);
+  var glassTex = new THREE.CanvasTexture(gc);
+  var glass = new THREE.MeshStandardMaterial({ map: glassTex, emissiveMap: glassTex, emissive: new THREE.Color(0x9fe6ff), emissiveIntensity: 0.55, metalness: 0.3, roughness: 0.08 });
+  var body = new THREE.LatheGeometry([[0, -1.2], [0.22, -1.18], [0.3, -1.02], [0.36, -0.62], [0.38, 0], [0.355, 0.5], [0.28, 1.0], [0.15, 1.4], [0.05, 1.62], [0, 1.67]]
+    .map(function (a) { return new THREE.Vector2(a[0], a[1]); }), 36);
+  body.rotateX(Math.PI / 2);
+  return { hull: hull, wing: wing, trim: trim, glass: glass, body: body, glow: glowTexture('rgba(255,255,255,1)', 'rgba(120,255,180,0.55)') };
+})();
+function makeInovaShip(scale) {
+  var g = new THREE.Group(), K = shipKit, I = inovaKit;
+  g.add(new THREE.Mesh(I.body, I.hull));
+  var wr = new THREE.Mesh(K.wing, I.wing), wl = new THREE.Mesh(K.wing, I.wing); wl.scale.x = -1; g.add(wr); g.add(wl);
+  g.add(new THREE.Mesh(K.fin, I.trim));
+  var cab = new THREE.Mesh(new THREE.SphereGeometry(0.2, 28, 16, 0, Math.PI * 2, 0, Math.PI / 2), I.glass);
+  cab.scale.set(1.05, 1.0, 2.3); cab.position.set(0, 0.24, 0.6); g.add(cab);
+  g.userData.glows = [];
+  [-0.24, 0.24].forEach(function (ex) {
+    var e = new THREE.Mesh(K.eng, I.trim); e.position.set(ex, -0.02, -1.0); g.add(e);
+    var tr = new THREE.Mesh(K.trail, new THREE.MeshBasicMaterial({ map: K.trailTex, color: 0x8dffc0, transparent: true, opacity: 0.75, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
+    tr.position.x = ex; tr.position.y = -0.02; g.add(tr);
+    var gl = new THREE.Sprite(new THREE.SpriteMaterial({ map: I.glow, color: 0xb4ffd2, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false }));
+    gl.position.set(ex, -0.02, -1.3); gl.scale.set(0.75, 0.75, 1); g.add(gl); g.userData.glows.push(gl);
+  });
+  // luzes de navegação nas pontas das asas: vermelha à esquerda, verde à direita, piscando
+  g.userData.nav = [[-1.38, 0xff4d5e], [1.38, 0x5dff8a]].map(function (a) {
+    var s = new THREE.Sprite(new THREE.SpriteMaterial({ map: I.glow, color: a[1], transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false }));
+    s.position.set(a[0], 0.03, -0.72); s.scale.set(0.42, 0.42, 1); g.add(s); return s;
+  });
+  g.scale.setScalar(scale);
+  return g;
+}
+var nave = (function () {
+  var g = makeInovaShip(0.66); g.visible = false; scene.add(g);
+  var N = 120, pos = new Float32Array(N * 3), col = new Float32Array(N * 3);
+  var geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  var trail = new THREE.Line(geo, new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending, depthWrite: false }));
+  trail.frustumCulled = false; trail.visible = false; scene.add(trail);
+  var hit = new THREE.Mesh(new THREE.SphereGeometry(2.6, 10, 10), new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false }));
+  hit.userData.key = 'inova'; scene.add(hit); pickables.push(hit);
+  return { g: g, trail: trail, pos: pos, col: col, geo: geo, N: N, hist: [], hit: hit, leg: 0, fase: 'parado', t: 0, dur: 1, ang: 0,
+    p: new THREE.Vector3(), s0: new THREE.Vector3(), c1: new THREE.Vector3(), fwd: new THREE.Vector3(0, 0, 1), started: false };
+})();
+var nTmp = new THREE.Vector3(), nTmp2 = new THREE.Vector3(), nTmp3 = new THREE.Vector3(), nLook = new THREE.Vector3(), nQ = new THREE.Quaternion(), nM = new THREE.Matrix4();
+function naveParada(key, ang, out) {   // ponto de espera em volta do planeta, um pouco acima dele
+  var b = planets[key], p = planetWorld(key, nTmp2), rad = b.R * 2.7;
+  return out.set(p.x + Math.cos(ang) * rad, p.y + b.R * 1.15, p.z + Math.sin(ang) * rad);
+}
+function naveProxima() {
+  var n = nave; n.leg = (n.leg + 1) % ROTA.length;
+  var key = ROTA[n.leg], p = planetWorld(key, nTmp2);
+  n.s0.copy(n.p); n.fase = 'voo'; n.t = 0;
+  n.ang = Math.atan2(n.p.z - p.z, n.p.x - p.x);            // chega pelo lado de onde vem
+  var fim = naveParada(key, n.ang, nTmp3), d = n.s0.distanceTo(fim);
+  n.dur = Math.max(3.2, Math.min(9, d / 10));
+  n.c1.addVectors(n.s0, fim).multiplyScalar(0.5); n.c1.y += 5 + d * 0.12;
+}
+function updateNave(dt, t) {
+  var n = nave, vivo = state.mode !== 'intro' && state.mode !== 'warp';
+  n.g.visible = n.trail.visible = vivo;
+  if (!vivo) return;
+  var k = dt * Math.max(0.12, state.timeScale) * (REDUCED ? 0.5 : 1);
+  if (!n.started) { n.started = true; n.leg = ROTA.length - 1; n.p.copy(naveParada('comercial', 0.6, nTmp3)); naveProxima(); }
+  var prev = nTmp.copy(n.p), key = ROTA[n.leg];
+  if (n.fase === 'voo') {
+    n.t += k / n.dur;
+    var u = Math.min(1, n.t), e = u * u * (3 - 2 * u), fim = naveParada(key, n.ang, nLook);
+    // curva de Bézier quadrática até o ponto de espera (que se move junto com o planeta)
+    n.p.set(0, 0, 0).addScaledVector(n.s0, (1 - e) * (1 - e)).addScaledVector(n.c1, 2 * (1 - e) * e).addScaledVector(fim, e * e);
+    if (u >= 1) { n.fase = 'parado'; n.t = 0; }
+  } else {
+    n.t += k; n.ang += k * 0.45;
+    naveParada(key, n.ang, n.p);
+    if (n.t > 7) naveProxima();
+  }
+  // a nave aponta para onde está indo, com a virada suavizada
+  nLook.subVectors(n.p, prev);
+  if (nLook.lengthSq() > 1e-6) {
+    n.fwd.lerp(nLook.normalize(), Math.min(1, dt * 5)).normalize();
+    nM.lookAt(n.fwd, nTmp2.set(0, 0, 0), up); nQ.setFromRotationMatrix(nM);   // +Z (o bico) aponta para a frente
+    n.g.quaternion.slerp(nQ, Math.min(1, dt * 6));
+  }
+  n.g.position.copy(n.p); n.hit.position.copy(n.p);
+  n.g.userData.glows.forEach(function (gl, i) { gl.material.opacity = 0.75 + Math.sin(t * 22 + i * 1.7) * 0.2; });
+  n.g.userData.nav.forEach(function (s, i) { s.material.opacity = (Math.sin(t * 3.2 + i * Math.PI) > 0.55) ? 1 : 0.15; });
+  // rastro
+  var h = n.hist;
+  if (!h.length || h[0].distanceToSquared(n.p) > 0.09) { h.unshift(n.p.clone()); if (h.length > n.N) h.pop(); }
+  for (var i = 0; i < n.N; i++) {
+    var q = h[Math.min(i, h.length - 1)] || n.p, f = Math.max(0, 1 - i / Math.min(n.N, h.length || 1)), w = f * f * 0.8;
+    n.pos[i * 3] = q.x; n.pos[i * 3 + 1] = q.y; n.pos[i * 3 + 2] = q.z;
+    n.col[i * 3] = w * 0.55; n.col[i * 3 + 1] = w; n.col[i * 3 + 2] = w * 0.75;
+  }
+  n.geo.attributes.position.needsUpdate = n.geo.attributes.color.needsUpdate = true;
+}
+
+/* =========================================================
+   Institucional: um asteroide solitário, vagando
+   Uma área do CITi sem desafio neste processo: fica como menção. É uma rocha numa órbita
+   alongada e inclinada, que atravessa as dos planetas devagar, girando em torno de si.
+   ========================================================= */
+var VAGA = { q: 17, Q: 84, peri: 1.26, inc: -0.32, T: 150 };   // o afélio fica do outro lado do sistema, acima do plano
+VAGA.a = (VAGA.q + VAGA.Q) / 2; VAGA.e = (VAGA.Q - VAGA.q) / (VAGA.Q + VAGA.q);
+var vaga = (function () {
+  var geo = new THREE.IcosahedronGeometry(1, 2), p = geo.attributes.position, v = new THREE.Vector3(), nz = makeNoise(913);
+  for (var i = 0; i < p.count; i++) {
+    v.fromBufferAttribute(p, i);
+    var d = 1 + 0.32 * (nz(v.x * 1.3 + 4, v.y * 1.3, v.z * 1.3, 3) - 0.5) * 2;
+    v.multiplyScalar(d); v.x *= 1.35; v.z *= 0.85;   // alongado, como uma batata
+    p.setXYZ(i, v.x, v.y, v.z);
+  }
+  geo.computeVertexNormals();
+  var c = document.createElement('canvas'); c.width = 256; c.height = 128;
+  var x = c.getContext('2d'), r = rng(55); x.fillStyle = '#6f675c'; x.fillRect(0, 0, 256, 128);
+  for (var k = 0; k < 220; k++) { var cr = 1 + r() * 7; x.fillStyle = 'rgba(' + (r() < 0.5 ? '40,36,32' : '150,140,124') + ',' + (0.15 + r() * 0.35) + ')'; x.beginPath(); x.arc(r() * 256, r() * 128, cr, 0, Math.PI * 2); x.fill(); }
+  var tex = new THREE.CanvasTexture(c);
+  var m = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ map: tex, color: 0xb8ad9c, roughness: 0.95, metalness: 0.05, flatShading: true }));
+  m.scale.setScalar(0.95); m.visible = false; scene.add(m);
+  var hit = new THREE.Mesh(new THREE.SphereGeometry(3, 10, 10), new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false }));
+  hit.userData.key = 'institucional'; scene.add(hit); pickables.push(hit);
+  return { m: m, hit: hit, M: 1.0, p: new THREE.Vector3() };
+})();
+function vagaOrbit(M, out) {
+  var e = VAGA.e, E = M + e * Math.sin(M);
+  for (var k = 0; k < 8; k++) E -= (E - e * Math.sin(E) - M) / (1 - e * Math.cos(E));
+  var x = VAGA.a * (Math.cos(E) - e), z = VAGA.a * Math.sqrt(1 - e * e) * Math.sin(E);
+  var c = Math.cos(VAGA.peri), s = Math.sin(VAGA.peri), X = x * c - z * s, Z = x * s + z * c;
+  return out.set(X, Z * Math.sin(VAGA.inc), Z * Math.cos(VAGA.inc));
+}
+function updateVaga(dt, t) {
+  var vivo = state.mode !== 'intro' && state.mode !== 'warp';
+  vaga.m.visible = vivo; if (!vivo) return;
+  vaga.M += dt * state.timeScale * (REDUCED ? 0.35 : 1) * Math.PI * 2 / VAGA.T;
+  vagaOrbit(vaga.M, vaga.p);
+  vaga.m.position.copy(vaga.p); vaga.hit.position.copy(vaga.p);
+  vaga.m.rotation.set(t * 0.21, t * 0.13, t * 0.07);
+}
+
+/* nome que aparece só no clique e some sozinho depois de alguns segundos */
+var nomeFlutua = document.createElement('div'); nomeFlutua.className = 'nome-flutua'; nomeFlutua.setAttribute('aria-live', 'polite');
+labelsEl.appendChild(nomeFlutua);
+var nomeAlvo = null, nomeTimer = null, nfProj = new THREE.Vector3();
+function mostrarNome(alvo, txt, cor) {
+  nomeAlvo = alvo; nomeFlutua.textContent = txt; nomeFlutua.style.color = cor;
+  nomeFlutua.classList.remove('is-on'); void nomeFlutua.offsetWidth; nomeFlutua.classList.add('is-on');
+  clearTimeout(nomeTimer); nomeTimer = setTimeout(function () { nomeFlutua.classList.remove('is-on'); }, 2600);
+}
+function updateNome() {
+  if (!nomeAlvo) return;
+  var p = nomeAlvo === 'inova' ? nave.p : vaga.p;
+  var H = window.innerHeight, px = (nomeAlvo === 'inova' ? 1.1 : 1.3) * H / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2))) / Math.max(0.1, camera.position.distanceTo(p));
+  nfProj.copy(p).project(camera);
+  if (nfProj.z >= 1) { nomeFlutua.style.visibility = 'hidden'; return; }
+  nomeFlutua.style.visibility = '';
+  nomeFlutua.style.transform = 'translate(' + ((nfProj.x * 0.5 + 0.5) * window.innerWidth) + 'px,' + ((-nfProj.y * 0.5 + 0.5) * H - 8 - Math.min(px, H * 0.3)) + 'px) translate(-50%,-100%)';
+}
+
 var LABEL_ORDER = BODIES.filter(function (b) { return !b.sun; }).concat(BODIES.filter(function (b) { return b.sun; }));
 var clock = new THREE.Clock(), goalPos = new THREE.Vector3(), goalTarget = new THREE.Vector3(), proj = new THREE.Vector3();
 function damp(k, dt) { return 1 - Math.exp(-k * dt); }
@@ -2833,6 +3058,8 @@ function tick() {
   flares.forEach(function (f) { var u = f.userData; f.material.opacity = REDUCED ? u.base * 0.7 : u.base * (0.35 + 0.65 * Math.max(0, Math.sin(t * u.sp + u.ph))); });
   asteroidBelt.rotation.y = state.sim * 0.035;
   updateComet(dt);
+  updateNave(dt, t);
+  updateVaga(dt, t);
   updateConstellation(dt, t);
   updateProms(dt, t);
 
@@ -2880,6 +3107,8 @@ function tick() {
   scene.fog.density = 0.0013 * Math.min(1, 160 / Math.max(160, camera.position.length()));
 
   // rótulos
+  camera.updateMatrixWorld();
+  updateNome();
   var W = window.innerWidth, H = window.innerHeight;
   // o nome fica logo abaixo do astro na tela, a uma distância medida em pixels: funciona de frente e de cima
   var pxPerUnit = H / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)));

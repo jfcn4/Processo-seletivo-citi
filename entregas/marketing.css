@@ -259,16 +259,18 @@
 /* ---- convite para rolar (resumo.js): borda esmaecida + "Role para ver mais" ---- */
 .scue { position: absolute; left: 0; right: 0; bottom: 0; height: 0; z-index: 6; pointer-events: none; }
 .scue-panel { position: fixed; z-index: 9; bottom: auto; }
-.scue-fade { position: absolute; left: 0; right: 0; bottom: 0; height: 96px; opacity: 0; transition: opacity .3s ease;
-  background: linear-gradient(180deg, rgba(4, 11, 8, 0), rgba(4, 11, 8, .92) 85%); }
-.scue-panel .scue-fade { height: 84px; background: linear-gradient(180deg, rgba(3, 10, 7, 0), rgba(3, 10, 7, .95) 85%); }
+.scue-fade { position: absolute; left: 0; right: 0; bottom: 0; height: 72px; opacity: 0; transition: opacity .3s ease;
+  background: linear-gradient(180deg, rgba(4, 11, 8, 0), rgba(4, 11, 8, .85) 90%); }
+.scue-panel .scue-fade { height: 64px; background: linear-gradient(180deg, rgba(3, 10, 7, 0), rgba(3, 10, 7, .9) 90%); }
 .scue.is-fade .scue-fade { opacity: 1; }
-.scue-btn { position: absolute; left: 50%; bottom: calc(14px + env(safe-area-inset-bottom, 0px)); transform: translate(-50%, 10px); opacity: 0;
-  display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px 8px 16px; border-radius: 999px; white-space: nowrap;
-  font-family: var(--f-mono); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink);
-  background: rgba(10, 26, 19, .92); border: 1px solid var(--scue, var(--mk-acc, var(--accent, #4fe577))); box-shadow: 0 8px 26px rgba(0, 0, 0, .45);
-  transition: opacity .3s ease, transform .3s ease; cursor: pointer; }
-.scue-btn span { display: inline-block; color: var(--scue, var(--mk-acc, var(--accent, #4fe577))); animation: scue-pulo 1.6s ease-in-out infinite; }
+/* discreto: pílula pequena e translúcida; só a seta se mexe */
+.scue-btn { position: absolute; left: 50%; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); transform: translate(-50%, 8px); opacity: 0;
+  display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px 4px 11px; border-radius: 999px; white-space: nowrap;
+  font-family: var(--f-mono); font-size: 9.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-dim);
+  background: rgba(8, 20, 15, .55); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+  border: 1px solid rgba(255, 255, 255, .12); transition: opacity .35s ease, transform .35s ease, color .2s, border-color .2s; cursor: pointer; }
+.scue-btn:hover { color: var(--ink); border-color: var(--scue, var(--mk-acc, var(--accent, #4fe577))); }
+.scue-btn span { display: inline-block; font-size: 11px; color: var(--scue, var(--mk-acc, var(--accent, #4fe577))); animation: scue-pulo 1.8s ease-in-out infinite; }
 .scue.is-btn .scue-btn { opacity: 1; transform: translate(-50%, 0); pointer-events: auto; }
 #dx .scue { --scue: var(--dx-s1); }
 @keyframes scue-pulo { 0%, 100% { transform: translateY(-1px); } 50% { transform: translateY(3px); } }

@@ -240,6 +240,90 @@
     views.push(render); render();
   }
 
+  /* ================= E SE EU ERREI ALGUMA NOTA? =================
+     A balança testa os pesos; aqui o visitante mexe nas notas de 1 a 5. Para cada versão das notas,
+     o site sorteia 20 mil combinações de pesos (uniformes entre todas as combinações possíveis, o mesmo
+     método dos 200 mil testes do documento) e conta em quantas o varejo continua vencendo. */
+  var AMOSTRA = (function () {
+    var a = 42, out = [];
+    function rnd() { a |= 0; a = a + 0x6D2B79F5 | 0; var t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }
+    for (var n = 0; n < 20000; n++) { var w = []; for (var k = 0; k < CRIT.length; k++) w.push(-Math.log(1 - rnd())); out.push(w); }
+    return out;
+  })();
+  var NOTAS = CRIT.map(function (c) { return { v: c.v, i: c.i }; });
+  function robustez() {
+    var ganha = 0;
+    AMOSTRA.forEach(function (w) { var sv = 0, si = 0; for (var k = 0; k < w.length; k++) { sv += w[k] * NOTAS[k].v; si += w[k] * NOTAS[k].i; } if (sv > si) ganha++; });
+    return ganha / AMOSTRA.length * 100;
+  }
+  function notasEse(container) {
+    var c = node('<div class="mk-card mk-ese"></div>');
+    c.innerHTML = '<p class="mk-label">E se eu errei alguma nota? · mexa nas notas, não nos pesos</p>' +
+      '<p class="mk-fixed">A balança mostra que a decisão aguenta pesos diferentes. Mas as notas de 1 a 5 também são julgamento meu. Aumente ou diminua qualquer nota e veja quanto a resposta muda.</p>';
+    var pres = node('<div class="mk-presets" role="group" aria-label="Cenários de notas"></div>');
+    var CEN = [
+      ['doc', 'Minhas notas'],
+      ['otim', 'Fui otimista com o varejo'],
+      ['duro', 'Fui duro com a indústria'],
+      ['ambos', 'Os dois juntos']
+    ];
+    CEN.forEach(function (x) { var b = node('<button class="mk-preset" type="button"></button>'); b.textContent = x[1]; b.dataset.v = x[0]; pres.appendChild(b); });
+    c.appendChild(pres);
+    var grid = node('<div class="mk-ese-grid"></div>');
+    var tab = node('<div class="mk-ese-tab" role="table" aria-label="Notas por critério"></div>');
+    var out = node('<div class="mk-ese-out" aria-live="polite"></div>');
+    grid.appendChild(tab); grid.appendChild(out); c.appendChild(grid);
+    container.appendChild(c);
+    function cenario(v) { cenario0(v); draw(); }
+    function igual(a) { return NOTAS.every(function (n, k) { return n.v === a[k].v && n.i === a[k].i; }); }
+    function draw() {
+      tab.innerHTML = '<div role="row" class="is-h"><span role="columnheader">Critério</span><span role="columnheader" style="color:' + COR.v + '">Varejo</span><span role="columnheader" style="color:' + COR.i + '">Indústria</span></div>' +
+        CRIT.map(function (cr, k) {
+          function cel(lado) {
+            var v = NOTAS[k][lado], mud = v !== cr[lado];
+            return '<span role="cell" class="mk-ese-cel' + (mud ? ' is-mud' : '') + '"><button type="button" data-k="' + k + '" data-l="' + lado + '" data-d="-1" aria-label="Diminuir a nota de ' + (lado === 'v' ? 'varejo' : 'indústria') + ' em ' + esc(cr.nome) + '"' + (v <= 1 ? ' disabled' : '') + '>−</button>' +
+              '<b>' + v + '</b><button type="button" data-k="' + k + '" data-l="' + lado + '" data-d="1" aria-label="Aumentar a nota de ' + (lado === 'v' ? 'varejo' : 'indústria') + ' em ' + esc(cr.nome) + '"' + (v >= 5 ? ' disabled' : '') + '>+</button>' +
+              (mud ? '<em>era ' + cr[lado] + '</em>' : '') + '</span>';
+          }
+          return '<div role="row"><span role="rowheader">' + esc(cr.nome) + '</span>' + cel('v') + cel('i') + '</div>';
+        }).join('');
+      tab.querySelectorAll('button').forEach(function (b) {
+        b.addEventListener('click', function () {
+          var n = NOTAS[+b.dataset.k], l = b.dataset.l;
+          n[l] = Math.max(1, Math.min(5, n[l] + +b.dataset.d));
+          draw();
+          var again = tab.querySelector('button[data-k="' + b.dataset.k + '"][data-l="' + l + '"][data-d="' + b.dataset.d + '"]');
+          if (again && !again.disabled) again.focus();
+        });
+      });
+      var sv = 0, si = 0; NOTAS.forEach(function (n) { sv += n.v; si += n.i; });
+      var mv = sv / NOTAS.length, mi = si / NOTAS.length, r = robustez(), dif = sv - si;
+      var cen = CEN.filter(function (x) { var keep = NOTAS; cenario0(x[0]); var ok = igual(keep); NOTAS = keep; return ok; })[0];
+      pres.querySelectorAll('button').forEach(function (b) { b.setAttribute('aria-pressed', cen && cen[0] === b.dataset.v ? 'true' : 'false'); });
+      var venc = r >= 50 ? 'varejo' : 'indústria';
+      out.innerHTML =
+        '<div class="mk-ese-big"><b style="color:' + (r >= 50 ? COR.v : COR.i) + '">' + dec(r).replace(',0', '') + '%</b><span>das 20 mil combinações de pesos dão <strong>varejo</strong>' + (igual(CRIT) ? ' (no documento, com 200 mil: 84%)' : '') + '</span></div>' +
+        '<div class="mk-ese-bars" aria-label="Notas com pesos iguais">' +
+          '<div><span>Varejo</span><i style="width:' + (mv / 5 * 100) + '%;background:' + COR.v + '"></i><b>' + dec(mv) + '</b></div>' +
+          '<div><span>Indústria</span><i style="width:' + (mi / 5 * 100) + '%;background:' + COR.i + '"></i><b>' + dec(mi) + '</b></div></div>' +
+        '<p class="mk-ese-txt">' + (dif > 0
+          ? 'Com pesos iguais o varejo ainda vence. Para a indústria passar à frente, seria preciso tirar mais <b>' + (dif + 1) + ' ' + (dif + 1 === 1 ? 'ponto' : 'pontos') + '</b> do varejo (ou dar à indústria), somando os seis critérios.'
+          : dif === 0 ? 'Com pesos iguais, empate. A decisão passa a depender só de quais critérios pesam mais.'
+          : 'Com essas notas, a <b>indústria</b> vence com pesos iguais. É o tamanho do erro que precisaria existir nas minhas notas para a resposta mudar.') + '</p>';
+    }
+    // cenários: "otimista com o varejo" tira 1 ponto dele onde ganhou; "duro com a indústria" dá 1 ponto a ela onde perdeu
+    function cenario0(v) {
+      NOTAS = CRIT.map(function (cr) {
+        var n = { v: cr.v, i: cr.i };
+        if ((v === 'otim' || v === 'ambos') && cr.v > cr.i) n.v = cr.v - 1;
+        if ((v === 'duro' || v === 'ambos') && cr.i < cr.v) n.i = cr.i + 1;
+        return n;
+      });
+    }
+    pres.querySelectorAll('button').forEach(function (b) { b.addEventListener('click', function () { cenario(b.dataset.v); }); });
+    draw();
+  }
+
   /* ================= PDF ================= */
   var libP, docP;
   function loadLib() {
@@ -321,11 +405,12 @@
     views = views.filter(function (fn) { return !fn.inOverlay; });
     var before = views.length;
     body.innerHTML = '';
-    body.appendChild(hero());
+    body.appendChild(window.CITI_RESUMO ? window.CITI_RESUMO(hero(), t === 'balanca' ? 'medio' : 'fino') : hero());
     if (t === 'balanca') {
       var c = node('<div class="mk-card"><p class="mk-label">Teste você mesmo: mude os pesos</p></div>');
       body.appendChild(c); balanca(c, true);
       grafMatriz(body);
+      notasEse(body);
     } else if (t === 'numeros') {
       var g = node('<div class="mk-charts"></div>'); body.appendChild(g);
       grafVarejo(g); grafIA(g);
@@ -358,14 +443,14 @@
     function sec(title) { var s = document.createElement('section'); s.className = 'p-sec'; var h3 = document.createElement('h3'); h3.textContent = title; s.appendChild(h3); container.appendChild(s); return s; }
     var a = sec('Minha resposta');
     a.appendChild(node('<div class="mk-answer"><strong>Varejo alimentar de Pernambuco</strong><span>Redes regionais de porte médio e grande. A indústria de alimentos fica como segunda opção.</span></div>'));
-    var e = sec('Minha entrega');
-    pdfView(e, false);
-    var acts = node('<div class="mk-actions">' + pdfButtons('<button class="mk-btn" type="button" data-full>Tela cheia ⤢</button>') + '</div>');
-    acts.querySelector('[data-full]').addEventListener('click', function () { abrir('documento'); });
-    e.appendChild(acts);
     var c = sec('Como pensei');
     c.appendChild(node('<p class="mk-sub">Teste você mesmo: mude os pesos</p>'));
     balanca(c, false);
+    var e = sec('O documento');
+    var dr = node('<div class="mk-docrow"><span class="mk-docrow-ico" aria-hidden="true">PDF</span><span class="mk-docrow-t"><b>Desafio de Marketing</b><small>7 páginas · PDF original</small></span>' +
+      '<div class="mk-actions"><a class="mk-btn" href="' + PDF_URL + '" download="' + PDF_URL + '">Baixar ↓</a><a class="mk-btn" href="' + PDF_URL + '" target="_blank" rel="noopener">Nova aba ↗</a><button class="mk-btn" type="button" data-full>Tela cheia ⤢</button></div></div>');
+    dr.querySelector('[data-full]').addEventListener('click', function () { abrir('documento'); });
+    e.appendChild(dr);
   }
 
   window.CITI_ENTREGAS = window.CITI_ENTREGAS || {};

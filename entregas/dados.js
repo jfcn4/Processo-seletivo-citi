@@ -117,11 +117,13 @@
           '<div><div class="dx-eyebrow">Dados · Órbita 1 · Entrega</div><h2 class="dx-title" id="dx-title">Do dado bagunçado ao primeiro assistente</h2></div>' +
           '<div class="dx-top-actions">' + (links ? '<span class="dx-links">' + links + '</span>' : '') + '<button class="dx-btn" type="button" data-close>Voltar ao planeta ✕</button></div>' +
         '</div>' +
-        '<div class="dx-stages" role="tablist" aria-label="Etapas do desafio">' +
-          '<button class="dx-stage-tab" type="button" role="tab" data-stage="1"><span class="dx-n">Etapa 1</span><strong>Do dado bagunçado ao dado útil</strong><span class="dx-t">Google Sheets · pipeline em Python</span></button>' +
-          '<button class="dx-stage-tab is-s2" type="button" role="tab" data-stage="2"><span class="dx-n">Etapa 2</span><strong>Primeiro assistente</strong><span class="dx-t">Gemini Gems · manual de manutenção</span></button>' +
+        '<div class="dx-nav">' +
+          '<div class="dx-stages" role="tablist" aria-label="Etapas do desafio">' +
+            '<button class="dx-stage-tab" type="button" role="tab" data-stage="1" title="Etapa 1 · Google Sheets e pipeline em Python"><span class="dx-n">Etapa 1</span><strong>Dado útil</strong></button>' +
+            '<button class="dx-stage-tab is-s2" type="button" role="tab" data-stage="2" title="Etapa 2 · Gemini Gems e manual de manutenção"><span class="dx-n">Etapa 2</span><strong>Assistente</strong></button>' +
+          '</div>' +
+          '<div class="dx-subtabs" role="tablist" aria-label="Partes da etapa"></div>' +
         '</div>' +
-        '<div class="dx-subtabs" role="tablist" aria-label="Partes da etapa"></div>' +
       '</header>' +
       '<div class="dx-body"><div class="dx-wrap" id="dx-content"></div></div>';
     body = root.querySelector('#dx-content');
@@ -184,7 +186,7 @@
 
   // sub-abas da etapa, no cabeçalho, logo abaixo dos botões de etapa
   var SUBS = {
-    1: [['planilha', 'Planilha'], ['repo', 'Repositório'], ['decisoes', 'Decisões']],
+    1: [['planilha', 'Planilha'], ['limpeza', 'Limpeza passo a passo'], ['repo', 'Repositório'], ['decisoes', 'Decisões']],
     2: [['testes', 'Testes'], ['instrucoes', 'Instruções do Gem'], ['historico', 'Histórico e observações']]
   };
   function subtabs(n, pane, render) {
@@ -216,7 +218,7 @@
         '<div class="dx-stat"><b>' + (D.log.length - 1) + '</b><span>registros no Log, com justificativas</span></div>' +
         '<div class="dx-stat"><b>' + brl(D.ouro.grand) + '</b><span>faturamento total, igual na Ouro e no Log</span></div>' +
       '</div>';
-    body.appendChild(hero);
+    body.appendChild(window.CITI_RESUMO ? window.CITI_RESUMO(hero, 'medio') : hero);
 
     var flow = node('<div class="dx-flow"></div>');
     [['Bronze', '#c58a52', 'Cópia intocada', nBronze + ' linhas, exatamente como chegaram'],
@@ -246,8 +248,103 @@
   function render1(pane) {
     pane.innerHTML = '';
     if (S.sub1 === 'planilha') pane.appendChild(sheet());
+    else if (S.sub1 === 'limpeza') pane.appendChild(limpeza());
     else if (S.sub1 === 'repo') pane.appendChild(repo());
     else pane.appendChild(decisoes());
+  }
+
+  /* ================= LIMPEZA PASSO A PASSO =================
+     As 7 regras do Log aplicadas uma a uma sobre a Bronze, até chegar na Prata.
+     As células corrigidas pegam o valor final da Prata, procurado pelo número do pedido
+     (a Prata foi renumerada; as duplicadas têm o mesmo pedido da original). */
+  var REGRAS = D.log.slice(1).filter(function (r) { return r.cat; }).map(function (r) {
+    return { cat: r.cat, achei: r.c[0], fiz: r.c[1], porque: r.c[3], resta: +r.c[4], linhas: (r.c[2].match(/\d+/g) || []).map(Number) };
+  });
+  var PRATA_POR_PEDIDO = {};
+  D.prata.forEach(function (r) { PRATA_POR_PEDIDO[r.v[0]] = r.v; });
+  function numBR(v) { var x = parseFloat(String(v).replace(/\./g, '').replace(',', '.')); return isNaN(x) ? null : x; }
+  function estadoLimpeza(k) {   // o que cada célula e linha mostra depois de k regras
+    var linhas = [], textoRestante = 0, problemas = 0;
+    D.bronze.forEach(function (r) {
+      var vazia = r.v.every(function (x) { return !String(x).trim(); }), fim = PRATA_POR_PEDIDO[r.v[0]];
+      var row = { n: r.n, cells: r.v.slice(), cls: [], removida: null, agora: false };
+      REGRAS.forEach(function (g, gi) {
+        if (g.linhas.indexOf(r.n) < 0) return;
+        var feita = gi < k, agora = gi === k - 1;
+        if (CAT[g.cat].row) {
+          if (feita) row.removida = agora ? 'agora' : 'antes';
+          else problemas++;
+          if (agora) row.agora = true;
+        } else {
+          var col = CAT[g.cat].col;
+          if (feita) { if (fim) row.cells[col] = fim[col]; row.cls[col] = agora ? 'is-agora' : 'is-feita'; if (agora) row.agora = true; }
+          else { row.cls[col] = 'is-pend p-' + g.cat; problemas++; }
+        }
+      });
+      if (!vazia && row.removida !== 'antes' && numBR(row.cells[5]) === null && !/^\d+$/.test(row.cells[5])) textoRestante++;
+      row.vazia = vazia;
+      linhas.push(row);
+    });
+    var vivas = linhas.filter(function (l) { return !l.removida; });
+    var soma = textoRestante ? null : vivas.filter(function (l) { return !l.vazia; }).reduce(function (s, l) { var x = /^\d+$/.test(l.cells[5]) ? +l.cells[5] : numBR(l.cells[5]); return s + (x || 0); }, 0);
+    return { linhas: linhas, vivas: vivas.length, problemas: problemas, texto: textoRestante, soma: soma };
+  }
+  var passoL = 0, timerL = null;
+  function limpeza() {
+    var wrap = node('<div class="dx-card dx-limp"></div>');
+    wrap.innerHTML = '<p class="dx-label">Da Bronze à Prata · aplique as regras do Log, uma a uma</p>' +
+      '<p class="dx-note">A planilha começa como chegou. A cada regra, as células corrigidas mudam para o valor final e as linhas removidas saem da conta. Só no fim o faturamento fecha com a aba Ouro.</p>';
+    var ctr = node('<div class="dx-limp-ctr"></div>');
+    ctr.innerHTML = '<input type="range" min="0" max="' + REGRAS.length + '" step="1" aria-label="Quantas regras aplicar">' +
+      '<div class="dx-limp-ticks">' + ['Bronze'].concat(REGRAS.map(function (r, i) { return String(i + 1); })).map(function (t, i) { return '<button type="button" data-k="' + i + '">' + t + '</button>'; }).join('') + '</div>' +
+      '<div class="dx-limp-btns"><button type="button" class="dx-btn" data-nav="-1">← Desfazer</button><button type="button" class="dx-btn is-main" data-nav="1">Aplicar a próxima regra →</button><button type="button" class="dx-btn" data-play>▶ Aplicar todas</button></div>';
+    wrap.appendChild(ctr);
+    var info = node('<div class="dx-limp-info" aria-live="polite"></div>'); wrap.appendChild(info);
+    var tab = node('<div class="dx-table-wrap dx-limp-tab" tabindex="0" aria-label="Planilha durante a limpeza"></div>'); wrap.appendChild(tab);
+    var range = ctr.querySelector('input');
+
+    function draw(rolar) {
+      var k = passoL, e = estadoLimpeza(k), g = REGRAS[k - 1];
+      range.value = k;
+      ctr.querySelectorAll('[data-k]').forEach(function (b) { var i = +b.dataset.k; b.className = i === k ? 'is-on' : i < k ? 'is-done' : ''; });
+      ctr.querySelector('[data-nav="-1"]').disabled = k === 0;
+      ctr.querySelector('[data-nav="1"]').disabled = k === REGRAS.length;
+      var fechou = e.soma !== null && Math.round(e.soma) === Math.round(D.ouro.grand) && k === REGRAS.length;
+      var somaTxt = e.soma === null ? 'não dá para somar: ' + e.texto + ' valores ainda são texto'
+        : fechou ? '✓ faturamento total, igual ao da aba Ouro' : 'faturamento, ainda com pedidos repetidos';
+      info.innerHTML =
+        '<div class="dx-limp-rule">' + (g
+          ? '<span class="dx-limp-n" style="--pc:' + CAT[g.cat].color + '">Regra ' + k + ' de ' + REGRAS.length + '</span><b>' + esc(g.achei) + '</b><p>' + esc(g.fiz) + '</p>' + (g.porque ? '<p class="dx-limp-why">' + esc(g.porque) + '</p>' : '')
+          : '<span class="dx-limp-n">A Bronze, como chegou</span><b>60 linhas, 5 tipos de problema</b><p>Clique em “Aplicar a próxima regra” e acompanhe as células mudarem.</p>') + '</div>' +
+        '<div class="dx-limp-kpis">' +
+          '<div><b>' + e.vivas + '</b><span>linhas na conta</span></div>' +
+          '<div' + (e.problemas ? '' : ' class="is-ok"') + '><b>' + e.problemas + '</b><span>problemas restantes</span></div>' +
+          '<div class="dx-limp-sum' + (fechou ? ' is-ok' : e.soma === null ? ' is-bad' : '') + '"><b>' + (e.soma === null ? '—' : brl(e.soma)) + '</b><span>' + esc(somaTxt) + '</span></div>' +
+        '</div>';
+      var heads = ['Pedido', 'Data', 'Cliente', 'Cidade', 'Produto', 'Valor (R$)'];
+      var h = '<table class="dx-t"><thead><tr><th class="rn">#</th>' + heads.map(function (x, i) { return '<th' + (i === 0 || i === 5 ? ' class="num"' : '') + '>' + x + '</th>'; }).join('') + '</tr></thead><tbody>';
+      e.linhas.forEach(function (l) {
+        if (l.removida === 'antes') return;
+        var trc = (l.removida === 'agora' ? 'is-saindo' : '') + (l.agora ? ' is-alvo' : '');
+        h += '<tr class="' + trc + '" data-n="' + l.n + '"><td class="rn">' + l.n + '</td>' + l.cells.map(function (v, i) {
+          return '<td class="' + ((i === 0 || i === 5) ? 'num ' : '') + (l.cls[i] || '') + '">' + (l.vazia && i === 2 ? '<em>linha vazia</em>' : esc(v)) + '</td>';
+        }).join('') + '</tr>';
+      });
+      tab.innerHTML = h + '</tbody></table>';
+      if (rolar) { var alvo = tab.querySelector('tr.is-alvo'); if (alvo) tab.scrollTop = Math.max(0, alvo.offsetTop - 60); }
+    }
+    function ir(k) { passoL = Math.max(0, Math.min(REGRAS.length, k)); draw(true); }
+    function parar() { if (timerL) { clearInterval(timerL); timerL = null; } }
+    range.addEventListener('input', function () { parar(); ir(+range.value); });
+    ctr.querySelectorAll('[data-k]').forEach(function (b) { b.addEventListener('click', function () { parar(); ir(+b.dataset.k); }); });
+    ctr.querySelectorAll('[data-nav]').forEach(function (b) { b.addEventListener('click', function () { parar(); ir(passoL + +b.dataset.nav); }); });
+    ctr.querySelector('[data-play]').addEventListener('click', function () {
+      parar(); ir(0);
+      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) { ir(REGRAS.length); return; }
+      timerL = setInterval(function () { if (!document.body.contains(wrap)) { parar(); return; } ir(passoL + 1); if (passoL >= REGRAS.length) parar(); }, 1300);
+    });
+    draw(false);
+    return wrap;
   }
 
   function sheet() {
@@ -473,7 +570,7 @@
         '<div class="dx-callout"><strong>A ponte entre as etapas.</strong> A pergunta 2 pede justamente a resposta da Etapa 1 (' + esc(best.city) + ', em ' + mesExtenso(best.month) + '). ' +
         'Como isso não está no manual, o assistente precisava dizer que não sabe, e disse, nas duas rodadas.</div>' +
       '</div>';
-    body.appendChild(hero);
+    body.appendChild(window.CITI_RESUMO ? window.CITI_RESUMO(hero, 'medio') : hero);
     var pane = node('<div class="dx-pane" style="display:grid;gap:14px"></div>');
     body.appendChild(pane);
     subtabs(2, pane, render2);
@@ -547,12 +644,47 @@
     if (lastFocus && lastFocus.focus) lastFocus.focus({ preventScroll: true });
   }
 
+  /* ---------- mini limpeza: as mesmas regras, só os números ---------- */
+  function miniLimpeza(container) {
+    var k = 0, timer = null;
+    var w = node('<div class="dx-mlimp">' +
+      '<div class="dx-mlimp-top"><span class="dx-mlimp-n"></span><b class="dx-mlimp-r"></b></div>' +
+      '<input type="range" min="0" max="' + REGRAS.length + '" step="1" value="0" aria-label="Quantas regras do Log aplicar">' +
+      '<div class="dx-mlimp-kpis" aria-live="polite"></div>' +
+      '<div class="dx-mlimp-btns"><button type="button" class="dx-btn" data-play>▶ Aplicar todas</button><button type="button" class="dx-btn" data-ver>Ver a planilha mudando →</button></div></div>');
+    var range = w.querySelector('input');
+    function draw() {
+      var e = estadoLimpeza(k), g = REGRAS[k - 1];
+      var fechou = k === REGRAS.length && e.soma !== null && Math.round(e.soma) === Math.round(D.ouro.grand);
+      range.value = k;
+      range.style.setProperty('--pct', (k / REGRAS.length * 100) + '%');
+      w.querySelector('.dx-mlimp-n').textContent = g ? 'Regra ' + k + ' de ' + REGRAS.length : 'Bronze, como chegou';
+      w.querySelector('.dx-mlimp-r').textContent = g ? g.achei : 'Arraste para aplicar as regras do Log';
+      w.querySelector('.dx-mlimp-kpis').innerHTML =
+        '<div><b>' + e.vivas + '</b><span>linhas</span></div>' +
+        '<div' + (e.problemas ? '' : ' class="is-ok"') + '><b>' + e.problemas + '</b><span>problemas</span></div>' +
+        '<div class="' + (fechou ? 'is-ok' : e.soma === null ? 'is-bad' : '') + '"><b>' + (e.soma === null ? '—' : brl(e.soma)) + '</b><span>' + (e.soma === null ? 'valores ainda em texto' : fechou ? '✓ bate com a aba Ouro' : 'ainda com repetidos') + '</span></div>';
+    }
+    function parar() { if (timer) { clearInterval(timer); timer = null; } }
+    range.addEventListener('input', function () { parar(); k = +range.value; draw(); });
+    w.querySelector('[data-play]').addEventListener('click', function () {
+      parar(); k = 0; draw();
+      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) { k = REGRAS.length; draw(); return; }
+      timer = setInterval(function () { if (!document.body.contains(w)) { parar(); return; } k++; draw(); if (k >= REGRAS.length) parar(); }, 700);
+    });
+    w.querySelector('[data-ver]').addEventListener('click', function () { parar(); S.sub1 = 'limpeza'; passoL = k; abrir(1); setTimeout(function () { scrollToPane(); }, 60); });
+    draw();
+    container.appendChild(w);
+  }
+
   /* ---------- resumo no painel lateral do planeta ---------- */
   function painel(container) {
     function sec(title) { var s = document.createElement('section'); s.className = 'p-sec'; var h3 = document.createElement('h3'); h3.textContent = title; s.appendChild(h3); container.appendChild(s); return s; }
     var a = sec('Resposta para a diretoria');
     a.appendChild(node('<div class="dx-answer"><span class="dx-city">' + esc(best.city) + '</span><span class="dx-when">em ' + mesExtenso(best.month) + '</span><span class="dx-value">' + brl(best.value) + ' em pedidos no mês</span></div>'));
     a.appendChild(node('<p class="dx-mini">A cidade que mais comprou da Metalúrgica Mezzalira, e em qual mês.</p>'));
+    var m = sec('Teste a limpeza');
+    miniLimpeza(m);
     var e = sec('As duas etapas');
     var s1 = node('<button class="dx-stage-card" type="button"><span class="dx-n">Etapa 1 · Google Sheets e Python</span><strong>Do dado bagunçado ao dado útil</strong><span class="dx-d">' + nBronze + ' → ' + nPrata + ' linhas, 5 problemas corrigidos, abas Bronze, Prata, Log e Ouro</span></button>');
     var s2 = node('<button class="dx-stage-card is-s2" type="button"><span class="dx-n">Etapa 2 · Gemini Gems</span><strong>Primeiro assistente</strong><span class="dx-d">' + nOk + ' de ' + D.tests.length + ' perguntas aprovadas, nas duas rodadas de teste</span></button>');

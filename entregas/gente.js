@@ -1,6 +1,6 @@
 /* Entrega do planeta Gente e Gestão: quanto custou o Squad Aurora.
-   painel(): resumo no painel lateral (resposta, PDF e o gráfico de quem pagou a conta).
-   abrir(aba): tela cheia com a conta (simulador de renegociação), as horas por pessoa, o clima e o documento.
+   painel(): resumo no painel lateral (resposta, quem pagou a conta, as 4 ações e o documento).
+   abrir(aba): tela cheia com a conta (simulador de renegociação), o plano ligado no Aurora, as horas por pessoa, o clima e o documento.
    Todos os números vêm do enunciado; as contas são refeitas aqui, na hora. */
 (function () {
   'use strict';
@@ -304,6 +304,101 @@
     draw();
   }
 
+  /* ================= O PLANO, LIGADO NO AURORA =================
+     As 4 ações do documento (seção 4). Ligar uma ação mostra o que ela teria mudado
+     nos fatos do Aurora: as mudanças, o pico de horas, a madrugada e a dúvida de sair.
+     Não há previsão de nota: só o que a ação teria barrado e a meta que o documento fixa. */
+  var ACOES = [
+    { n: 1, nome: 'Processo formal de mudança de escopo', curto: 'Escopo formal', desc: 'Só começa com novo valor ou prazo aprovado por escrito; o pedido registra quem absorve as horas.', resolve: 'Processo e pessoas', resp: 'Diretoria, com o gerente de projeto', prazo: '30 dias', dias: 30, medir: '100% das mudanças registradas e renegociadas', causa: true },
+    { n: 2, nome: 'Controle semanal de carga', curto: 'Carga semanal', desc: 'Acima de 6 h/semana por 2 semanas, GG é avisada.', resolve: 'Processo e pessoas', resp: 'Gerente de projeto, com GG', prazo: '2 semanas', dias: 14, medir: 'Ninguém acima da regra por mais de 2 semanas' },
+    { n: 3, nome: 'Retrospectiva e reconhecimento', curto: 'Reconhecimento', desc: 'Agradecimento nominal ao esforço; vira ritual de fim de projeto.', resolve: 'Pessoas', resp: 'GG e o gerente de projeto', prazo: '2 semanas', dias: 14, medir: 'Reconhecimento em 3,5 ou mais na próxima pesquisa' },
+    { n: 4, nome: '1:1 com os 8 membros do squad', curto: 'Conversas 1:1', desc: 'O mesmo roteiro com todo mundo, na mesma semana, para ninguém ser apontado.', resolve: 'Pessoas', resp: 'GG', prazo: '3 semanas', dias: 21, medir: 'Ninguém sai do projeto sem uma conversa antes' }
+  ];
+  var PROBLEMAS = [
+    { k: 'escopo', nome: 'Escopo mudando sem comunicação', dado: 'Comunicação com a gerência −0,8', acao: 1 },
+    { k: 'carga', nome: 'Carga insustentável', dado: 'Carga sustentável −1,1', acao: 2 },
+    { k: 'reconh', nome: 'Esforço extra sem reconhecimento', dado: 'Reconhecimento −1,2', acao: 3 },
+    { k: 'saida', nome: 'Risco de perder membros', dado: 'Comentário 4', acao: 4 }
+  ];
+  // o que aconteceu no Aurora, semana a semana, e o que cada ação teria feito ali
+  var FATOS = MUD.map(function (m) {
+    return { sem: 'Sem. ' + m.sem, t: 'Mudança ' + m.n + ': ' + m.nome.charAt(0).toLowerCase() + m.nome.slice(1).replace(' em PDF', ' em PDF'), sem_: m.h + ' h feitas sem cobrar (' + brl(m.h * HORA) + ')' + (m.sem === 8 ? ', na última semana do prazo' : m.sem === 10 ? ', depois do prazo original' : '') + '.',
+      acao: 1, com: 'Pedido registrado: só começa com ' + brl(m.h * HORA) + ' ou novo prazo aprovado, e o time fica sabendo antes.' };
+  }).concat([
+    { sem: 'Sem. 10–12', t: 'Dev A e Dev B a ~15 h/semana', sem_: '2,5 vezes a regra de 6 h, por 3 semanas, sem ninguém de GG saber.', acao: 2, com: 'Na 2ª semana acima de 6 h, GG é avisada: o pico vira conversa durante o projeto, não descoberta na pesquisa. Dev A (7,9 h/sem.) e Dev B (7,5 h/sem.) passaram da regra até na média das 12 semanas.' },
+    { sem: 'Entrega', t: 'Uma madrugada antes da entrega', sem_: '“Ninguém comentou nada” (comentário 2).', acao: 3, com: 'Retrospectiva com agradecimento nominal ao esforço, como ritual de fim de projeto.' },
+    { sem: 'Depois', t: 'Alguém pensa em sair do projeto', sem_: 'A dúvida só aparece, anônima, na pesquisa (comentário 4).', acao: 4, com: '1:1 com os 8, mesmo roteiro: a dúvida aparece numa conversa, antes da decisão.' }
+  ]);
+  var plano = [false, false, false, false];
+  function planoVivo(container) {
+    var wrap = node('<div class="gg-plano"></div>');
+    wrap.innerHTML = '<div class="mk-card gg-pl-intro"><p class="mk-label">O plano de ação, ligado no Aurora</p>' +
+      '<p class="gg-note">Ligue as ações do documento e veja o que cada uma teria mudado nos fatos do projeto. O placar mostra quais problemas do diagnóstico ficam cobertos e quanto do valor não cobrado volta para a mesa.</p></div>';
+    var pres = seg([['nada', 'O que aconteceu'], ['so1', 'Só a prioridade'], ['tudo', 'O plano inteiro']], 'Cenários prontos', 'is-sm');
+    wrap.querySelector('.gg-pl-intro').appendChild(pres);
+    var grid = node('<div class="gg-pl-grid"></div>');
+    var cards = node('<div class="gg-pl-acoes" role="group" aria-label="Ações do plano"></div>');
+    ACOES.forEach(function (a, i) {
+      var c = node('<div class="gg-pl-acao' + (a.causa ? ' is-causa' : '') + '">' +
+        '<button type="button" class="gg-pl-tog" data-i="' + i + '" aria-pressed="false"><span class="gg-pl-n">' + a.n + '</span><span class="gg-pl-nm"><b>' + esc(a.nome) + '</b>' + (a.causa ? '<em>prioridade · ataca a causa</em>' : '') + '</span><span class="gg-pl-sw" aria-hidden="true"></span></button>' +
+        '<p>' + esc(a.desc) + '</p>' +
+        '<dl><div><dt>Responsável</dt><dd>' + esc(a.resp) + '</dd></div><div><dt>Prazo</dt><dd>' + a.prazo + '</dd></div><div><dt>Como medir</dt><dd>' + esc(a.medir) + '</dd></div></dl></div>');
+      if (a.n === 4) c.appendChild(node('<details class="gg-pl-roteiro"><summary>Ver o roteiro da conversa</summary>' +
+        '<p><b>Como eu abriria.</b> “Estou conversando com todo mundo do Aurora para entender como foi o projeto para cada pessoa e o que precisa mudar no próximo. Não é avaliação de desempenho. O que você me contar fica entre nós; se algo virar mudança para o time, levo sem dizer de onde veio e só com o seu ok.”</p><ol>' +
+        '<li>“Olhando para essas 12 semanas, como foi o projeto para você?” <span>Deixa a pessoa escolher por onde começar.</span></li>' +
+        '<li>“Teve algum momento que pesou mais? O que estava acontecendo?” <span>Abre espaço para carga e escopo sem citar a pesquisa.</span></li>' +
+        '<li>“Você sentiu que o seu esforço foi visto?” <span>Toca no reconhecimento, a maior queda do clima.</span></li>' +
+        '<li>“O que precisaria ser diferente para o próximo semestre valer a pena para você?” <span>Abre espaço para a dúvida sobre continuar, sem perguntar se a pessoa quer sair.</span></li></ol>' +
+        '<p class="gg-pl-mini">Não cito a pesquisa nem os comentários e não tento descobrir quem escreveu o quê. O que se repete vai para a diretoria agregado e sem nomes.</p></details>'));
+      cards.appendChild(c);
+    });
+    var lado = node('<div class="gg-pl-lado"><div class="mk-card gg-pl-placar" aria-live="polite"></div><div class="mk-card gg-pl-crono"></div></div>');
+    grid.appendChild(cards); grid.appendChild(lado); wrap.appendChild(grid);
+    var fatos = node('<div class="mk-card gg-pl-fatos"><p class="mk-label">O Aurora, de novo, com o plano ligado</p><ol></ol></div>');
+    wrap.appendChild(fatos);
+    container.appendChild(wrap);
+
+    function draw() {
+      var liga = plano.filter(Boolean).length, cobertos = PROBLEMAS.filter(function (p) { return plano[p.acao - 1]; }).length;
+      var rec = plano[0] ? P.valor * (P.hReal / P.hPlan) - P.valor : 0, perde = (P.hReal - P.hPlan) * HORA - rec;
+      cards.querySelectorAll('.gg-pl-tog').forEach(function (b) { var on = plano[+b.dataset.i]; b.setAttribute('aria-pressed', on); b.parentNode.classList.toggle('is-on', on); });
+      var cen = liga === 0 ? 'nada' : liga === 4 ? 'tudo' : liga === 1 && plano[0] ? 'so1' : null;
+      marcar(pres, cen);
+      var aviso = !plano[0] && liga > 0
+        ? '<p class="gg-pl-aviso">Sem a ação 1, as outras tratam os sintomas: o próximo squad repete as 180 h não cobradas e a sobrecarga.</p>'
+        : liga === 0 ? '<p class="gg-pl-mini">Nenhuma ação ligada: é o Aurora como aconteceu.</p>' : '';
+      lado.querySelector('.gg-pl-placar').innerHTML =
+        '<p class="mk-label">Placar</p>' +
+        '<div class="gg-pl-kpis"><div class="' + (plano[0] ? 'is-ok' : 'is-bad') + '"><b>' + brl(perde) + '</b><span>' + (plano[0] ? 'não cobrado: as 5 mudanças passam pelo processo' : 'de trabalho não cobrado') + '</span></div>' +
+        '<div class="' + (cobertos === 4 ? 'is-ok' : '') + '"><b>' + cobertos + ' de 4</b><span>problemas do diagnóstico com uma ação</span></div></div>' +
+        '<ul class="gg-pl-probs">' + PROBLEMAS.map(function (p) { var on = plano[p.acao - 1]; return '<li class="' + (on ? 'is-on' : '') + '"><span class="gg-pl-ck" aria-hidden="true">' + (on ? '✓' : '') + '</span><span><b>' + esc(p.nome) + '</b><small>' + esc(p.dado) + (on ? ' · ação ' + p.acao : '') + '</small></span></li>'; }).join('') + '</ul>' + aviso;
+      // cronograma: barras de 0 a 30 dias
+      var cr = '<p class="mk-label">Cronograma das ações ligadas</p><div class="gg-pl-gantt">';
+      ACOES.forEach(function (a, i) { cr += '<div class="gg-pl-row' + (plano[i] ? ' is-on' : '') + '"><span>' + a.n + ' · ' + esc(a.curto) + '</span><i><s style="width:' + (a.dias / 30 * 100) + '%"></s></i><em>' + a.prazo + '</em></div>'; });
+      lado.querySelector('.gg-pl-crono').innerHTML = cr + '<div class="gg-pl-eixo"><span>hoje</span><span>2 sem.</span><span>30 dias</span></div></div>';
+      fatos.querySelector('ol').innerHTML = FATOS.map(function (f) {
+        var on = plano[f.acao - 1];
+        return '<li class="' + (on ? 'is-on' : '') + '"><span class="gg-pl-sem">' + f.sem + '</span><div><b>' + esc(f.t) + '</b><p class="gg-pl-antes">' + esc(f.sem_) + '</p>' +
+          (on ? '<p class="gg-pl-com"><span>Ação ' + f.acao + '</span>' + esc(f.com) + '</p>' : '') + '</div></li>';
+      }).join('');
+    }
+    cards.querySelectorAll('.gg-pl-tog').forEach(function (b) { b.addEventListener('click', function () { var i = +b.dataset.i; plano[i] = !plano[i]; draw(); }); });
+    pres.querySelectorAll('button').forEach(function (b) { b.addEventListener('click', function () { var v = b.dataset.v; plano = ACOES.map(function (a, i) { return v === 'tudo' || (v === 'so1' && i === 0); }); draw(); }); });
+    draw();
+  }
+  function planoMini(container) {   // painel lateral: as 4 ações, cada uma abre o plano já ligada
+    var l = node('<ol class="gg-pl-lista"></ol>');
+    ACOES.forEach(function (a, i) {
+      var b = node('<li><button type="button"><span class="gg-pl-n">' + a.n + '</span><span><b>' + esc(a.nome) + '</b><small>' + esc(a.resp) + ' · ' + a.prazo + '</small></span></button></li>');
+      b.querySelector('button').addEventListener('click', function () { plano[i] = true; abrir('plano'); });
+      l.appendChild(b);
+    });
+    container.appendChild(l);
+    var bt = node('<div class="mk-actions"><button class="mk-btn" type="button">Ligar o plano no Aurora →</button></div>');
+    bt.querySelector('button').addEventListener('click', function () { abrir('plano'); });
+    container.appendChild(bt);
+  }
+
   /* ================= PDF ================= */
   var libP, docP;
   function loadLib() {
@@ -342,7 +437,7 @@
 
   /* ================= TELA CHEIA ================= */
   var root, body, lastFocus, aba = 'conta';
-  var TABS = [['conta', 'A conta'], ['pessoas', 'Quem pagou'], ['clima', 'O clima'], ['documento', 'Documento']];
+  var TABS = [['conta', 'A conta'], ['plano', 'O plano'], ['pessoas', 'Quem pagou'], ['clima', 'O clima'], ['documento', 'Documento']];
   function build() {
     root = node('<div id="gg" role="dialog" aria-modal="true" aria-labelledby="gg-title" hidden></div>');
     root.innerHTML =
@@ -379,8 +474,9 @@
     root.querySelectorAll('[data-tab]').forEach(function (b) { b.setAttribute('aria-selected', b.dataset.tab === t ? 'true' : 'false'); });
     contaViews = [];
     body.innerHTML = '';
-    body.appendChild(hero());
+    body.appendChild(window.CITI_RESUMO ? window.CITI_RESUMO(hero(), t === 'conta' ? 'medio' : 'fino') : hero());
     if (t === 'conta') { simulador(body); passos(body); contrato(body); }
+    else if (t === 'plano') planoVivo(body);
     else if (t === 'pessoas') { grafPessoas(body, false); divisaoExtras(body); }
     else if (t === 'clima') {
       grafClima(body);
@@ -412,16 +508,18 @@
     function sec(title) { var s = document.createElement('section'); s.className = 'p-sec'; var h3 = document.createElement('h3'); h3.textContent = title; s.appendChild(h3); container.appendChild(s); return s; }
     var a = sec('Minha resposta');
     a.appendChild(node('<div class="gg-answer"><strong>R$ 7.200 não cobrados</strong><span>480 h de trabalho por R$ 12.000, por 5 mudanças de escopo nunca renegociadas. Prioridade: processo formal de mudança de escopo no contrato.</span></div>'));
-    var e = sec('Minha entrega');
-    pdfView(e, false);
-    var acts = node('<div class="mk-actions">' + pdfButtons('<button class="mk-btn" type="button" data-full>Tela cheia ⤢</button>') + '</div>');
-    acts.querySelector('[data-full]').addEventListener('click', function () { abrir('documento'); });
-    e.appendChild(acts);
     var q = sec('Quem pagou a conta');
     grafPessoas(q, true);
     var b = node('<div class="mk-actions"><button class="mk-btn" type="button">Simular a renegociação →</button></div>');
     b.querySelector('button').addEventListener('click', function () { abrir('conta'); });
     q.appendChild(b);
+    var pl = sec('O plano de ação');
+    planoMini(pl);
+    var e = sec('O documento');
+    var dr = node('<div class="mk-docrow"><span class="mk-docrow-ico" aria-hidden="true">PDF</span><span class="mk-docrow-t"><b>Desafio de Gente e Gestão</b><small>5 páginas · PDF original</small></span>' +
+      '<div class="mk-actions"><a class="mk-btn" href="' + PDF_URL + '" download="' + PDF_URL + '">Baixar ↓</a><a class="mk-btn" href="' + PDF_URL + '" target="_blank" rel="noopener">Nova aba ↗</a><button class="mk-btn" type="button" data-full>Tela cheia ⤢</button></div></div>');
+    dr.querySelector('[data-full]').addEventListener('click', function () { abrir('documento'); });
+    e.appendChild(dr);
   }
 
   window.CITI_ENTREGAS = window.CITI_ENTREGAS || {};

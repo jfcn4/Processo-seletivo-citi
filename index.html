@@ -190,6 +190,13 @@ body.is-focused .label { opacity: 0; pointer-events: none; }
 .card .c-status { justify-self: start; font-family: var(--f-mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; padding: 3px 8px; border-radius: 999px; border: 1px solid currentColor; color: var(--accent, var(--citi)); }
 .card.is-pending { opacity: .7; }
 .card.is-pending .c-status { color: var(--ink-faint); border-style: dashed; }
+.sun-planets { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.sun-pl { display: grid; grid-template-columns: 12px minmax(0, 1fr) 14px; gap: 10px; align-items: center; width: 100%; padding: 12px; border-radius: 12px; border: 1px solid var(--line); background: rgba(255, 255, 255, .025); color: var(--ink-dim); text-align: left; cursor: pointer; transition: border-color .2s, background .2s, transform .2s; }
+.sun-pl i { width: 12px; height: 12px; border-radius: 50%; background: var(--c); box-shadow: 0 0 10px var(--c); }
+.sun-pl strong { display: block; font-family: var(--f-display); font-size: 14px; font-weight: 600; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sun-pl small { display: block; margin-top: 1px; font-family: var(--f-mono); font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-faint); }
+.sun-pl:hover, .sun-pl:focus-visible { border-color: var(--c); background: rgba(255, 255, 255, .05); color: var(--ink); transform: translateY(-1px); }
+.sun-pl:focus-visible { outline: 2px solid var(--citi); outline-offset: 2px; }
 .pending-note { display: grid; gap: 6px; padding: 16px; border-radius: 12px; border: 1px dashed var(--line); color: var(--ink-dim); }
 .pending-note strong { color: var(--ink); font-size: 15px; }
 .video .play { width: 64px; height: 64px; border-radius: 50%; background: var(--citi); display: grid; place-items: center; box-shadow: 0 0 40px rgba(79,229,119,.55); }
@@ -423,6 +430,7 @@ body.has-overlay #panel, body.has-overlay .hud-top, body.has-overlay .hud-bottom
 <div id="con-label" aria-hidden="true">Constelação CITi</div>
 <div id="toast" role="status" aria-live="polite"></div>
 
+<script src="entregas/resumo.js"></script>
 <script src="entregas/dados-data.js"></script>
 <script src="entregas/dados.js"></script>
 <script src="entregas/marketing.js"></script>
@@ -2275,6 +2283,20 @@ function renderPanel(b) {
     vid.addEventListener('pause', function () { Sound.duck(false); });
     vid.addEventListener('ended', function () { Sound.duck(false); });
     pBody.appendChild(section('Apresentação em vídeo', [v]));
+    // atalhos para cada planeta: leva a câmera até ele e abre o painel da entrega
+    var pl = el('div', 'sun-planets');
+    BODIES.forEach(function (o) {
+      if (o.sun) return;
+      var bt = el('button', 'sun-pl');
+      bt.type = 'button'; bt.style.setProperty('--c', o.color);
+      bt.innerHTML = '<i aria-hidden="true"></i><span><strong></strong><small></small></span>' +
+        '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M6 3l5 5-5 5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+      bt.querySelector('strong').textContent = o.name;
+      bt.querySelector('small').textContent = 'Órbita ' + o.orbit + (o.pending ? ' · em breve' : '');
+      bt.addEventListener('click', function () { focusOn(o.key); });
+      pl.appendChild(bt);
+    });
+    pBody.appendChild(section('As entregas', [pl]));
     var li = document.createElement('a');
     li.className = 'contact'; li.href = 'https://www.linkedin.com/in/joaofelipecn/'; li.target = '_blank'; li.rel = 'noopener noreferrer';
     li.innerHTML = '<span class="contact-ico" aria-hidden="true">in</span><span class="contact-meta"><strong>LinkedIn</strong><span>linkedin.com/in/joaofelipecn</span></span>' +

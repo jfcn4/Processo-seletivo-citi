@@ -237,3 +237,43 @@
 @media (prefers-reduced-motion: reduce) {
   #cm, .cm-bar span, .cm-emp li, .cm-mapa button, .cm-chart circle { transition: none; }
 }
+
+/* ---------- ensaio da reunião ---------- */
+.cm-ens { display: grid; gap: 16px; }
+.cm-ens-top { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.cm-ens-prog { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 4px; }
+.cm-ens-prog li { padding: 8px 6px; border-radius: 8px; border-bottom: 3px solid rgba(255, 255, 255, .08); background: rgba(255, 255, 255, .02); font-family: var(--f-mono); font-size: 10.5px; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-faint); text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: all .3s; }
+.cm-ens-prog li.is-done { color: var(--cm-acc); border-color: rgba(242, 193, 78, .5); }
+.cm-ens-prog li.is-on { color: #1d1402; background: var(--cm-acc); border-color: var(--cm-acc); font-weight: 600; }
+.cm-ens-log { display: grid; gap: 14px; }
+.cm-turn { display: grid; gap: 8px; animation: cm-in .35s ease both; }
+@keyframes cm-in { from { opacity: 0; transform: translateY(6px); } }
+.cm-bub { max-width: min(680px, 92%); padding: 12px 14px; font-size: 14.5px; line-height: 1.55; }
+.cm-bub .cm-who { display: block; margin-bottom: 4px; font-family: var(--f-mono); font-style: normal; font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; }
+.cm-bub.is-citi { justify-self: start; border-radius: 4px 16px 16px 16px; background: rgba(242, 193, 78, .08); border: 1px solid rgba(242, 193, 78, .3); color: #fff1cc; }
+.cm-bub.is-citi .cm-who { color: var(--cm-acc); }
+.cm-bub.is-dir { justify-self: end; border-radius: 16px 4px 16px 16px; background: rgba(255, 255, 255, .05); border: 1px solid var(--line); color: var(--ink); }
+.cm-bub.is-dir .cm-who { color: var(--ink-faint); }
+.cm-coach { margin: 0; justify-self: center; max-width: min(640px, 96%); padding: 8px 12px; border-left: 3px solid #4fe577; border-radius: 0 10px 10px 0; background: rgba(79, 229, 119, .06); font-size: 13px; line-height: 1.55; color: #c9f7d6; }
+.cm-ops { display: grid; gap: 8px; justify-items: end; animation: cm-in .35s ease both; }
+.cm-ops > span { font-family: var(--f-mono); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-faint); }
+.cm-ops button { max-width: min(560px, 92%); padding: 12px 14px; border-radius: 16px 4px 16px 16px; border: 1px dashed rgba(233, 245, 238, .3); background: transparent; color: var(--ink); font-size: 14px; line-height: 1.5; text-align: left; cursor: pointer; transition: border-color .2s, background .2s; }
+.cm-ops button:hover, .cm-ops button:focus-visible { border-style: solid; border-color: var(--cm-acc); background: var(--cm-soft); }
+.cm-ens-res { display: grid; gap: 12px; padding: 16px; border-radius: 16px; border: 1px solid rgba(79, 229, 119, .45); background: rgba(79, 229, 119, .05); animation: cm-in .4s ease both; }
+.cm-ens-res .mk-label { margin: 0; color: #a9f5c1; }
+.cm-ens-score { margin: 0; font-size: 14px; color: var(--ink-dim); }
+.cm-ens-score b { color: var(--ink); font-family: var(--f-display); font-size: 18px; }
+.cm-ens-check { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 250px), 1fr)); gap: 6px; }
+.cm-ens-check li { display: flex; align-items: baseline; gap: 8px; padding: 7px 10px; border-radius: 10px; border: 1px dashed var(--line); font-size: 13px; color: var(--ink-dim); }
+.cm-ens-check li span { font-weight: 700; color: var(--ink-faint); }
+.cm-ens-check li em { margin-left: auto; font-style: normal; font-family: var(--f-mono); font-size: 10px; color: var(--ink-faint); white-space: nowrap; }
+.cm-ens-check li.is-ok { border-style: solid; border-color: rgba(79, 229, 119, .4); color: var(--ink); }
+.cm-ens-check li.is-ok span { color: #4fe577; }
+.cm-ens-res .mk-btn { justify-self: start; }
+@media (max-width: 560px) {
+  .cm-ens-prog li { font-size: 0; padding: 6px 0; }
+  .cm-ens-prog li::before { content: counter(e); counter-increment: e; font-size: 11px; }
+  .cm-ens-prog { counter-reset: e; }
+  .cm-bub, .cm-ops button { max-width: 96%; }
+}
+@media (prefers-reduced-motion: reduce) { .cm-turn, .cm-ops, .cm-ens-res { animation: none; } }

@@ -209,7 +209,7 @@
 
   /* ================= estado da tela cheia ================= */
   var root, body, lastFocus, aba = 'loja', arquivo = 'README.md', mdRaw = false;
-  var TABS = [['loja', 'Loja ao vivo'], ['api', 'Testar a API'], ['repo', 'Repositório'], ['relatorio', 'Relatório']];
+  var TABS = [['loja', 'Loja ao vivo'], ['api', 'Testar a API'], ['raiox', 'Raio-x da venda'], ['repo', 'Repositório'], ['relatorio', 'Relatório']];
 
   function build() {
     root = node('<div id="dv" role="dialog" aria-modal="true" aria-labelledby="dv-title" hidden></div>');
@@ -265,8 +265,8 @@
     aba = t;
     root.querySelectorAll('[data-tab]').forEach(function (b) { b.setAttribute('aria-selected', b.dataset.tab === t ? 'true' : 'false'); });
     body.innerHTML = '';
-    body.appendChild(hero());
-    if (t === 'loja') abaLoja(); else if (t === 'api') abaApi(); else if (t === 'repo') abaRepo(); else abaRelatorio();
+    body.appendChild(window.CITI_RESUMO ? window.CITI_RESUMO(hero(), t === 'loja' ? 'medio' : 'fino') : hero());
+    if (t === 'loja') abaLoja(); else if (t === 'api') abaApi(); else if (t === 'raiox') raioX(body); else if (t === 'repo') abaRepo(); else abaRelatorio();
     var sc = root.querySelector('.mk-body');
     sc.scrollTop = 0;
     root.classList.remove('is-compact');
@@ -445,6 +445,128 @@
   var ICON_FILE = '<svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 1.5h6l3 3v10h-9z M9.5 1.5v3h3" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>';
   var ATALHOS = [['README.md', 'README'], ['src/controllers/PlantaController.ts', 'Controller'], ['src/repositories/PlantaRepository.ts', 'Repository'], ['src/routes.ts', 'Rotas'], ['prisma/schema.prisma', 'Schema'], ['tests/plantas.test.ts', 'Testes'], ['RELATORIO.md', 'Relatório']];
   var LANG_NOME = { ts: 'TypeScript', md: 'Markdown', sql: 'SQL', json: 'JSON', yml: 'YAML', prisma: 'Prisma', http: 'HTTP', html: 'HTML', toml: 'TOML', docker: 'Dockerfile', sh: 'Configuração', plain: 'Texto' };
+  /* ================= RAIO-X DE UMA VENDA =================
+     Uma requisição POST /plantas/:id/venda roda de verdade contra a API simulada (as mesmas regras do
+     PlantaController), e o raio-x mostra por qual camada do código ela passou e em qual parou.
+     Os trechos de código são os do repositório. */
+  var CAMADAS = [
+    { k: 'rota', nome: 'A rota', onde: 'src/routes.ts', code: 'routes.post("/plantas/:id/venda", PlantaController.venderPlanta);', ok: 'O Express encontra a rota e chama o controller.' },
+    { k: 'id', nome: 'O id da URL', onde: 'PlantaController.ts · parseId', code: 'const id = parseId(req.params.id);\nif (id === null) return res.status(400).json(ID_INVALIDO);', ok: 'O id é um inteiro positivo.', erro: 'O id chega da URL como texto; "abc", "0" e "1.5" viram null e param aqui, com 400.' },
+    { k: 'qtd', nome: 'A quantidade', onde: 'PlantaController.ts · venderPlanta', code: 'if (!ehInteiro(quantidade) || quantidade <= 0 || quantidade > MAIOR_INT_DO_BANCO)\n  return res.status(400).json({ campo: "quantidade", ... });', ok: 'A quantidade é um inteiro maior que zero.', erro: 'Number.isInteger recusa texto ("3"), decimal (1.5) e NaN; zero e negativos também param aqui.' },
+    { k: 'existe', nome: 'A planta existe?', onde: 'PlantaRepository.findPlantaById', code: 'const planta = await PlantaRepository.findPlantaById(id);\nif (!planta) return res.status(404).json(plantaNaoEncontrada(id));', ok: 'A planta foi encontrada no banco.', erro: 'Não há planta com esse id: 404, e não 500.' },
+    { k: 'estoque', nome: 'Confere e baixa o estoque, numa operação só', onde: 'PlantaRepository.ts · venderPlanta', code: 'prisma.planta.updateMany({\n  where: { id, estoque: { gte: quantidade } },\n  data: { estoque: { decrement: quantidade } },\n});   // count 0 = não havia estoque', ok: 'O banco só decrementa se ainda houver vasos suficientes, e diz quantas linhas mudou.', erro: 'O where não encontrou estoque suficiente: count 0. O controller busca o estoque de novo e responde 400 dizendo quantos vasos há.' },
+    { k: 'fim', nome: 'A resposta', onde: 'PlantaController.ts · venderPlanta', code: 'const plantaAtualizada = await PlantaRepository.findPlantaById(id);\nreturn res.status(200).json(plantaAtualizada);', ok: 'Devolve a planta com o estoque já atualizado.' }
+  ];
+  var CASOS = [
+    { k: 'ok', nome: 'Venda normal', id: '2', q: 3 },
+    { k: 'idtxt', nome: 'Id “abc”', id: 'abc', q: 1 },
+    { k: 'txt', nome: 'Quantidade "3" em texto', id: '2', q: '3' },
+    { k: 'dec', nome: 'Quantidade 1,5', id: '2', q: 1.5 },
+    { k: 'zero', nome: 'Quantidade 0', id: '2', q: 0 },
+    { k: 'nao', nome: 'Planta que não existe', id: '999', q: 1 },
+    { k: 'mais', nome: 'Mais do que o estoque', id: '10', q: 10 },
+    { k: 'esg', nome: 'Planta esgotada', id: '4', q: 1 },
+    { k: 'corrida', nome: 'Duas compras do último vaso', id: '10', q: 1, corrida: true }
+  ];
+  // o mesmo caminho do controller, para saber em que camada a requisição para
+  function paradaDe(rawId, q, plantas) {
+    var n = Number(rawId);
+    if (!(typeof rawId === 'string' && Number.isInteger(n) && n > 0 && n <= 2147483647)) return 1;
+    if (!Number.isInteger(q) || q <= 0 || q > 2147483647) return 2;
+    var p = plantas.filter(function (x) { return x.id === n; })[0];
+    if (!p) return 3;
+    if (p.estoque < q) return 4;
+    return 6;   // passou por todas
+  }
+  var casoAtual = 'ok';
+  function raioX(container) {
+    var c = node('<div class="mk-card dv-rx" id="dv-raiox"></div>');
+    c.innerHTML = '<p class="mk-label">Raio-x de uma venda · POST /plantas/:id/venda</p>' +
+      '<p class="dv-note">Escolha uma requisição. Ela roda de verdade na API simulada (as mesmas regras do <code>PlantaController</code>), e o raio-x acende cada camada do código por onde ela passou, até onde parou.</p>';
+    var chips = node('<div class="dv-rx-casos" role="group" aria-label="Requisições prontas"></div>');
+    CASOS.forEach(function (x) { var b = node('<button type="button"></button>'); b.textContent = x.nome; b.dataset.k = x.k; chips.appendChild(b); });
+    c.appendChild(chips);
+    var livre = node('<details class="dv-rx-livre"><summary>Ou monte a sua requisição</summary><div class="dv-rx-form">' +
+      '<label>Id na URL<input type="text" value="2" data-f="id" autocomplete="off"></label>' +
+      '<label>Corpo (JSON)<input type="text" value=\'{ "quantidade": 2 }\' data-f="body" autocomplete="off" spellcheck="false"></label>' +
+      '<button type="button" class="mk-btn is-main" data-livre>Enviar ▶</button></div></details>');
+    c.appendChild(livre);
+    var grid = node('<div class="dv-rx-grid"></div>');
+    var pipe = node('<ol class="dv-rx-pipe" aria-live="polite"></ol>');
+    var lado = node('<div class="dv-rx-lado"></div>');
+    grid.appendChild(pipe); grid.appendChild(lado); c.appendChild(grid);
+    container.appendChild(c);
+    var corrente = 0;   // invalida animações antigas quando outra requisição começa
+
+    function desenhar(parada, extra) {
+      pipe.innerHTML = CAMADAS.map(function (cam, i) {
+        var st = i < parada ? 'is-ok' : i === parada && parada < 5 ? 'is-stop' : 'is-skip';
+        if (parada === 6 && i === 5) st = 'is-ok';
+        var txt = st === 'is-stop' ? (cam.erro || '') : st === 'is-ok' ? cam.ok : 'A requisição não chegou aqui.';
+        var nota = extra && extra[i] ? '<p class="dv-rx-extra">' + extra[i] + '</p>' : '';
+        return '<li class="' + st + '" style="--i:' + i + '"><span class="dv-rx-dot" aria-hidden="true">' + (st === 'is-ok' ? '✓' : st === 'is-stop' ? '✕' : '') + '</span>' +
+          '<div><b>' + esc(cam.nome) + '</b><small>' + esc(cam.onde) + '</small><pre><code>' + esc(cam.code) + '</code></pre><p>' + esc(txt) + '</p>' + nota + '</div></li>';
+      }).join('');
+    }
+    function cartao(rotulo, metodo, url, corpo, r) {
+      var cls = r.status < 300 ? 'is-2xx' : r.status === 404 ? 'is-404' : 'is-4xx';
+      return '<div class="dv-rx-req"><span class="dv-rx-tag">' + esc(rotulo) + '</span><code>' + metodo + ' ' + esc(url) + '</code><pre>' + esc(corpo) + '</pre></div>' +
+        '<div class="dv-rx-res ' + cls + '"><span class="dv-rx-st">' + r.status + '</span><pre>' + esc(r.status === 204 ? '' : JSON.stringify(r.body, null, 2)) + '</pre></div>';
+    }
+    function rodar(rawId, corpoTxt, caso) {
+      var meu = ++corrente;
+      var api = window.FolhagemApi.criar({});   // banco novo, com as 10 plantas do seed
+      var antes = api.plantas();
+      var q; try { q = JSON.parse(corpoTxt).quantidade; } catch (e) { q = undefined; }
+      var url = '/plantas/' + rawId + '/venda';
+      if (caso && caso.corrida) api.definir(10, { estoque: 1 });
+      var plantas = api.plantas();
+      var pv = plantas.filter(function (x) { return String(x.id) === String(rawId); })[0];
+      var parada = paradaDe(String(rawId), q, plantas);
+      var reqs = caso && caso.corrida
+        ? Promise.all([req(api, 'POST', url, corpoTxt), req(api, 'POST', url, corpoTxt)])
+        : req(api, 'POST', url, corpoTxt).then(function (r) { return [r]; });
+      lado.innerHTML = '<p class="dv-note">Enviando…</p>';
+      pipe.innerHTML = '';
+      reqs.then(function (rs) {
+        if (meu !== corrente) return;
+        var extra = null, html;
+        if (caso && caso.corrida) {
+          parada = 6;
+          var perdeu = rs[1].status === 200 ? 0 : 1;
+          extra = { 4: 'As duas compras passaram pelas camadas de cima ao mesmo tempo. Aqui, o updateMany da <b>compra ' + (perdeu ? 'A' : 'B') + '</b> mudou 1 linha; o da <b>compra ' + (perdeu ? 'B' : 'A') + '</b> mudou 0, porque o estoque já era 0. O estoque nunca fica negativo.' };
+          html = '<p class="dv-rx-sub">Cacto-mandacaru com 1 vaso, duas compras ao mesmo tempo</p>' +
+            cartao('Compra A', 'POST', url, corpoTxt, rs[0]) + cartao('Compra B', 'POST', url, corpoTxt, rs[1]) +
+            '<p class="dv-rx-fim is-ok">Estoque final: ' + api.plantas().filter(function (x) { return x.id === 10; })[0].estoque + ' vasos. <a href="#" data-corrida>Ver a corrida passo a passo →</a></p>';
+        } else {
+          var r = rs[0];
+          html = cartao('Requisição', 'POST', url, corpoTxt, r);
+          if (r.status === 200 && pv) html += '<p class="dv-rx-fim is-ok">' + esc(pv.nome) + ': ' + pv.estoque + ' → ' + r.body.estoque + ' vasos no estoque.</p>';
+          else if (parada === 4 && pv) html += '<p class="dv-rx-fim">' + esc(pv.nome) + ' tinha ' + pv.estoque + ' ' + (pv.estoque === 1 ? 'vaso' : 'vasos') + '. Nada mudou no banco.</p>';
+          else html += '<p class="dv-rx-fim">Nada mudou no banco.</p>';
+        }
+        lado.innerHTML = html;
+        var a = lado.querySelector('[data-corrida]');
+        if (a) a.addEventListener('click', function (e) { e.preventDefault(); setAba('api', '#dv-race'); });
+        desenhar(parada, extra);
+        if (!REDUCED_DV) pipe.classList.remove('is-anim'), void pipe.offsetWidth, pipe.classList.add('is-anim');
+      });
+    }
+    function escolher(k) {
+      casoAtual = k;
+      chips.querySelectorAll('button').forEach(function (b) { b.setAttribute('aria-pressed', b.dataset.k === k ? 'true' : 'false'); });
+      var x = CASOS.filter(function (y) { return y.k === k; })[0];
+      rodar(x.id, JSON.stringify({ quantidade: x.q }), x);
+    }
+    chips.querySelectorAll('button').forEach(function (b) { b.addEventListener('click', function () { escolher(b.dataset.k); }); });
+    livre.querySelector('[data-livre]').addEventListener('click', function () {
+      chips.querySelectorAll('button').forEach(function (b) { b.setAttribute('aria-pressed', 'false'); });
+      rodar(livre.querySelector('[data-f="id"]').value.trim(), livre.querySelector('[data-f="body"]').value, null);
+    });
+    escolher(casoAtual);
+  }
+  var REDUCED_DV = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
   function abaRepo() {
     var chips = node('<div class="dv-chips" role="group" aria-label="Arquivos principais"></div>');
     var box = node('<div class="dx-repo"></div>');
@@ -536,6 +658,7 @@
     var e = sec('Explore a entrega');
     [['loja', 'Loja ao vivo', 'O painel web do repositório funcionando: cadastre, filtre e venda.', null],
      ['api', 'Testar a API', 'A tabela de testes do enunciado, a venda simultânea e os 51 testes, rodando aqui.', null],
+     ['raiox', 'Raio-x da venda', 'Uma venda passando pelo código, camada por camada. Escolha uma entrada ruim e veja quem barra.', null],
      ['repo', 'Repositório', D.files.length + ' arquivos para navegar, do schema aos testes.', null],
      ['relatorio', 'Relatório', 'O que fiz, como, as dificuldades e o uso de IA.', null]].forEach(function (x) {
       var b = node('<button class="dx-stage-card dv-card" type="button"><span class="dx-n"></span><strong></strong><span class="dx-d"></span></button>');

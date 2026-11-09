@@ -428,6 +428,101 @@
     sel(0);
   }
 
+  /* ================= ENSAIO DA REUNIÃO =================
+     O visitante faz o papel do diretor e escolhe as respostas; o roteiro se adapta, inclusive
+     caindo no plano B quando a hipótese não se confirma. As respostas do diretor são hipotéticas,
+     por isso ele aparece só como "o diretor". Perguntas e notas vêm do roteiro do desafio 2. */
+  var CENAS = {
+    ab: { etapa: 0, cod: 'Abertura', q: 'Obrigado pelo tempo. Vi que a Itamaracá conseguiu o financiamento do BNDES para 66 ônibus novos com ar-condicionado, GPS e câmeras. Para uma empresa com mais de 50 anos de operação, é uma renovação grande. Como foi tomar essa decisão?', ops: [
+      { r: 'Foi uma decisão difícil. A frota antiga estava pesando muito na manutenção.', nota: 'Ele mesmo trouxe a pressão da frota antiga, como a abertura previa. Anoto, e ainda não apresento a hipótese: quem deve nomear a dor é o cliente.', ir: 's' },
+      { r: 'Foi o momento certo: o financiamento saiu e aproveitamos.', nota: 'Resposta neutra. Combino a pauta e sigo para entender a operação, sem forçar o assunto.', ir: 's' }] },
+    s: { etapa: 1, cod: 'S1 + S2', q: 'Hoje, como funciona a manutenção de um ônibus, desde o problema aparecer até ele voltar para a rua? E onde vocês registram isso?', ops: [
+      { r: 'Cada garagem tem a sua planilha, e as ordens de serviço ainda são em papel.', nota: 'Processo e plataformas mapeados: dado espalhado e em papel. Isso dimensiona a integração e o trabalho de digitalização.', fill: ['Processo atual', 'Plataformas que já usam'], ir: 'p1' },
+      { r: 'Temos um sistema de gestão de frota faz alguns anos.', nota: 'Já existe sistema: o painel teria que conversar com ele, e a dor pode estar em outro lugar. Fico atento ao P1.', fill: ['Plataformas que já usam'], ir: 'p1' }] },
+    p1: { etapa: 2, cod: 'P1', q: 'Se eu perguntar agora quantos ônibus estão parados na garagem e por quê, quanto tempo leva para ter essa resposta?', ops: [
+      { r: 'Algumas horas. Tenho que ligar para cada garagem.', nota: 'Hipótese confirmada: falta visibilidade da frota. Vira a área prioritária e a primeira tela do painel.', fill: ['Área prioritária'], modo: 'frota', ir: 'i' },
+      { r: 'Consigo na hora, está tudo no sistema.', nota: 'A hipótese de visibilidade caiu. Não insisto: uso a pergunta aberta P5 para achar a dor que eu não previ.', ir: 'p5', b: true }] },
+    p5: { etapa: 2, cod: 'P5 · plano B', q: 'Onde esse processo mais trava hoje: na informação, nas peças ou nas pessoas?', ops: [
+      { r: 'Nas peças: ônibus parado esperando peça que estava em outra garagem.', nota: 'Pivô para estoque de peças entre garagens. A estrutura da reunião continua; só as perguntas de Implicação mudam.', fill: ['Área prioritária'], modo: 'pecas', ir: 'i' },
+      { r: 'Nas pessoas: falta motorista e sobra hora extra.', nota: 'Pivô para a escala de motoristas e cobradores, com cerca de 800 colaboradores em turnos.', fill: ['Área prioritária'], modo: 'escala', ir: 'i' }] },
+    i_frota: { etapa: 3, cod: 'I2', q: 'Em média, quantos ônibus ficam indisponíveis por dia, e quanto cada um deixa de faturar?', ops: [
+      { r: 'Uns 5 ou 6 por dia, mais ou menos.', nota: 'O número central do business case, dito por ele: 5 ônibus × R$ 1.712 por dia × 365 ≈ R$ 3,1 mi por ano em viagens não realizadas.', fill: ['Números do business case'], bc: true, ir: 'n' },
+      { r: 'Não sei dizer com certeza.', nota: 'Não ter o número já é a dor: sem visibilidade, ninguém sabe quanto custa um ônibus parado. Proponho medir junto na visita.', ir: 'n' }] },
+    i_pecas: { etapa: 3, cod: 'Implicação · peças', q: 'Quando um ônibus fica parado esperando peça, quantos dias isso costuma levar, e o que acontece com as viagens dele?', ops: [
+      { r: 'Dois, três dias. A linha roda com menos carro.', nota: 'Implicação medida em dias de ônibus parado por falta de peça e em viagens perdidas: é o número que entra no business case.', fill: ['Números do business case'], ir: 'n' },
+      { r: 'Depende da peça. Às vezes, uma semana.', nota: 'A incerteza é a dor: sem saber onde está a peça, o prazo vira loteria. Peço o histórico das últimas ordens de serviço.', ir: 'n' }] },
+    i_escala: { etapa: 3, cod: 'Implicação · escala', q: 'Quantas horas extras vocês pagam por mês para cobrir falta de motorista? E já deixaram de rodar viagem por isso?', ops: [
+      { r: 'Muita hora extra. E sim, já saiu viagem a menos.', nota: 'Hora extra e viagens perdidas por falta de pessoal: os dois números do business case desse pivô.', fill: ['Números do business case'], ir: 'n' },
+      { r: 'Prefiro não abrir esse número agora.', nota: 'Não forço. Registro como pauta da visita e sigo como parceiro, não como vendedor.', ir: 'n' }] },
+    n: { etapa: 4, cod: 'N3', q: 'Por onde faria sentido começar: pelos 66 ônibus novos ou por uma garagem inteira?', ops: [
+      { r: 'Pelos novos. São os que eu mais preciso proteger.', nota: 'Ele mesmo escolheu o piloto. Isso define o escopo e o preço da fase 1, e o critério de sucesso: os novos sem parar.', fill: ['Escopo do piloto', 'Cenário ideal e critério de sucesso'], ir: 'fe' },
+      { r: 'Pela garagem principal, onde o problema é maior.', nota: 'Piloto numa garagem inteira: escopo maior, mas com o processo completo de ponta a ponta.', fill: ['Escopo do piloto'], ir: 'fe' }] },
+    fe: { etapa: 5, cod: 'Fechamento', q: 'O próximo passo que eu sugiro é conhecer a garagem. Faz sentido uma visita na terça, dia 17 de novembro, às 9h, com você, o gerente de manutenção e quem cuida dos sistemas?', ops: [
+      { r: 'Faz. Vou chamar o gerente de manutenção e o pessoal do sistema.', nota: 'Próximo passo na agenda, com quem usa o processo e quem vai integrar na sala.', fill: ['Pessoas envolvidas', 'Tem time de TI?', 'Prazo'], fim: 'visita' },
+      { r: 'Preciso alinhar internamente com meus sócios antes.', nota: 'A resposta pronta: “Posso te mandar amanhã um resumo de uma página com o que conversamos. Podemos já deixar um horário na próxima semana para eu ouvir o retorno? Quinta, às 16h, por 20 minutos?”', fill: ['Pessoas envolvidas'], fim: 'retorno' }] }
+  };
+  var ETAPAS_E = ['Abertura', 'Situação', 'Problema', 'Implicação', 'Necessidade', 'Fechamento'];
+  function ensaio(container) {
+    var c = node('<div class="mk-card cm-ens"></div>');
+    c.innerHTML = '<div class="cm-ens-top"><div><p class="mk-label">Ensaie a reunião · você é o diretor da Itamaracá</p>' +
+      '<p class="cm-note">Escolha as respostas do diretor e veja o roteiro se adaptar, inclusive caindo no plano B se a hipótese não se confirmar. As respostas são hipotéticas; as perguntas e o raciocínio são os do desafio 2.</p></div>' +
+      '<button type="button" class="mk-btn" data-reset>Recomeçar</button></div>' +
+      '<ol class="cm-ens-prog" aria-label="Etapas da reunião">' + ETAPAS_E.map(function (e) { return '<li>' + e + '</li>'; }).join('') + '</ol>' +
+      '<div class="cm-ens-log" aria-live="polite"></div>';
+    container.appendChild(c);
+    var log = c.querySelector('.cm-ens-log'), prog = c.querySelector('.cm-ens-prog');
+    var st;
+    function novo() { st = { cena: 'ab', hist: [], fill: {}, modo: 'frota', b: false, bc: false, fim: null }; draw(); }
+    function cenaAtual() { return st.cena === 'i' ? CENAS['i_' + st.modo] : CENAS[st.cena]; }
+    function bolha(cena, op) {
+      return '<div class="cm-turn"><div class="cm-bub is-citi"><span class="cm-who">CITi · ' + esc(cena.cod) + '</span>“' + esc(cena.q) + '”</div>' +
+        (op ? '<div class="cm-bub is-dir"><span class="cm-who">Diretor</span>“' + esc(op.r) + '”</div><p class="cm-coach">' + esc(op.nota) + '</p>' : '') + '</div>';
+    }
+    function draw() {
+      var etapaAtual = st.fim ? 6 : cenaAtual().etapa;
+      prog.querySelectorAll('li').forEach(function (li, i) { li.className = i < etapaAtual ? 'is-done' : i === etapaAtual ? 'is-on' : ''; });
+      var h = st.hist.map(function (x) { return bolha(x.cena, x.op); }).join('');
+      if (!st.fim) {
+        var cena = cenaAtual();
+        h += bolha(cena, null) + '<div class="cm-ops" role="group" aria-label="Responder como o diretor"><span>Responder como o diretor:</span>' +
+          cena.ops.map(function (o, i) { return '<button type="button" data-o="' + i + '">“' + esc(o.r) + '”</button>'; }).join('') + '</div>';
+      } else h += resultado();
+      log.innerHTML = h;
+      log.querySelectorAll('[data-o]').forEach(function (b) {
+        b.addEventListener('click', function () {
+          var cena = cenaAtual(), op = cena.ops[+b.dataset.o];
+          st.hist.push({ cena: cena, op: op });
+          (op.fill || []).forEach(function (f) { st.fill[f] = 1; });
+          if (op.modo) st.modo = op.modo;
+          if (op.b) st.b = true;
+          if (op.bc) st.bc = true;
+          if (op.fim) st.fim = op.fim; else st.cena = op.ir;
+          draw();
+          var ult = log.querySelector('.cm-turn:last-of-type, .cm-ens-res');
+          var alvo = log.querySelector('.cm-ens-res') || log.querySelector('.cm-ops') || ult;
+          if (alvo) alvo.scrollIntoView({ block: 'nearest', behavior: REDUCED ? 'auto' : 'smooth' });
+          var first = log.querySelector('[data-o]'); if (first) first.focus({ preventScroll: true });
+        });
+      });
+    }
+    function resultado() {
+      var feitos = NEEDS.filter(function (n) { return st.fill[n[0]]; }).length;
+      var data = st.fim === 'visita'
+        ? '<div class="cm-cal"><span>nov</span><b>17</b><span>terça · 9h</span></div><div><b>Visita técnica à garagem principal · 1h30</b><p>Com o diretor, o gerente de manutenção e o responsável por TI. Do CITi: comercial e um consultor de Soluções.</p></div>'
+        : '<div class="cm-cal"><span>retorno</span><b>Qui</b><span>16h · 20 min</span></div><div><b>Conversa de retorno, depois do alinhamento interno</b><p>Amanhã: resumo de uma página com a dor e os números citados. A data já fica reservada.</p></div>';
+      return '<div class="cm-ens-res"><p class="mk-label">' + (st.fim === 'visita' ? '✓ Saí com a visita marcada' : '✓ Saí com o retorno marcado, mesmo com o “vamos alinhar”') + '</p>' +
+        '<div class="cm-invite">' + data + '</div>' +
+        (st.b ? '<p class="cm-note"><b>Plano B acionado:</b> a hipótese de visibilidade não se confirmou, e a pergunta aberta P5 levou a reunião para ' + (st.modo === 'pecas' ? 'o estoque de peças entre garagens' : 'a escala de motoristas e cobradores') + '.</p>' : '') +
+        (st.bc ? '<p class="cm-note"><b>Business case:</b> com o número que ele deu, a indisponibilidade custa cerca de <b>R$ 3,1 mi por ano</b> em viagens não realizadas.</p>' : '') +
+        '<p class="cm-ens-score"><b>' + feitos + ' de ' + NEEDS.length + '</b> itens que o time de Soluções precisa saíram desta reunião. O resto vira pauta da visita.</p>' +
+        '<ul class="cm-ens-check">' + NEEDS.map(function (n) { var ok = st.fill[n[0]]; return '<li class="' + (ok ? 'is-ok' : '') + '"><span>' + (ok ? '✓' : '→') + '</span>' + esc(n[0]) + (ok ? '' : '<em>pauta da visita</em>') + '</li>'; }).join('') + '</ul>' +
+        '<button type="button" class="mk-btn is-main" data-again>Ensaiar outro caminho ↺</button></div>';
+    }
+    c.querySelector('[data-reset]').addEventListener('click', novo);
+    log.addEventListener('click', function (e) { if (e.target.closest('[data-again]')) { novo(); c.scrollIntoView({ block: 'start', behavior: REDUCED ? 'auto' : 'smooth' }); } });
+    novo();
+  }
+
   /* ================= LEADS ================= */
   function nivel(p) { var n = NIVEIS[0]; NIVEIS.forEach(function (x) { if (p >= x[0]) n = x; }); return n[1]; }
   function placar(container, compacto) {
@@ -541,7 +636,7 @@
 
   /* ================= TELA CHEIA ================= */
   var root, body, lastFocus, aba = 'icp', docInicial = 'icp';
-  var TABS = [['icp', 'O ICP'], ['porte', 'O porte'], ['diagnostico', 'Diagnóstico'], ['leads', 'Leads'], ['documentos', 'Documentos']];
+  var TABS = [['icp', 'O ICP'], ['porte', 'O porte'], ['diagnostico', 'Diagnóstico'], ['ensaio', 'Ensaiar a reunião'], ['leads', 'Leads'], ['documentos', 'Documentos']];
   function build() {
     root = node('<div id="cm" role="dialog" aria-modal="true" aria-labelledby="cm-title" hidden></div>');
     root.innerHTML =
@@ -578,15 +673,18 @@
     root.querySelectorAll('[data-tab]').forEach(function (b) { b.setAttribute('aria-selected', b.dataset.tab === t ? 'true' : 'false'); });
     body.innerHTML = '';
     roteiro.ir = null;
-    body.appendChild(hero());
+    body.appendChild(window.CITI_RESUMO ? window.CITI_RESUMO(hero(), t === 'icp' ? 'medio' : 'fino') : hero());
     if (t === 'icp') { funil(body, false); alvos(body); }
     else if (t === 'porte') calculadora(body);
     else if (t === 'diagnostico') {
       body.appendChild(node('<div class="mk-card cm-ctx"><p class="mk-label">Contexto da reunião</p><dl class="cm-ctx-grid">' +
         '<div><dt>Interlocutor</dt><dd>José Anchieta, diretor</dd></div><div><dt>Gatilho</dt><dd>~R$ 53 mi do BNDES para 66 ônibus Euro 6 (ago/2026)</dd></div>' +
-        '<div><dt>Hipótese de fit</dt><dd>Painel de frota por garagem</dd></div><div><dt>Objetivo</dt><dd>Sair com a visita à garagem marcada, e o diretor enxergando em reais quanto custa um ônibus parado</dd></div></dl></div>'));
+        '<div><dt>Hipótese de fit</dt><dd>Painel de frota por garagem</dd></div><div><dt>Objetivo</dt><dd>Sair com a visita à garagem marcada, e o diretor enxergando em reais quanto custa um ônibus parado</dd></div></dl>' +
+        '<div class="mk-actions" style="margin-top:12px"><button type="button" class="mk-btn is-main" data-ensaio>Ensaiar a reunião: você é o diretor ▶</button></div></div>'));
+      body.querySelector('[data-ensaio]').addEventListener('click', function () { setAba('ensaio'); });
       roteiro(body); matriz(body); business(body); planoB(body);
-    } else if (t === 'leads') {
+    } else if (t === 'ensaio') ensaio(body);
+    else if (t === 'leads') {
       var g = node('<div class="cm-leads-top"></div>'); body.appendChild(g);
       placar(g, false); montaLead(g); leadsTabela(body);
     } else documentos(body, true, docInicial);
@@ -613,8 +711,6 @@
     function sec(title) { var s = document.createElement('section'); s.className = 'p-sec'; var h3 = document.createElement('h3'); h3.textContent = title; s.appendChild(h3); container.appendChild(s); return s; }
     var a = sec('Minha resposta');
     a.appendChild(node('<div class="cm-answer"><strong>Itamaracá, Armazém Coral e Entre Amigos</strong><span>Três empresas de PE dentro do ICP, cada uma com hipótese de fit e gatilho de 2026. Para a Itamaracá, o roteiro de diagnóstico: 45 minutos, 23 perguntas SPIN e a visita à garagem como próximo passo.</span></div>'));
-    var e = sec('Minhas entregas');
-    documentos(e, false, 'icp');
     var f = sec('Do filtro ao alvo');
     etapa = 4; funil(f, true);
     var b = node('<div class="mk-actions"><button class="mk-btn" type="button">Ver o filtro etapa por etapa →</button></div>');
@@ -625,6 +721,14 @@
     var bl = node('<div class="mk-actions"><button class="mk-btn" type="button">Ver os leads →</button></div>');
     bl.querySelector('button').addEventListener('click', function () { abrir('leads'); });
     l.appendChild(bl);
+    var e = sec('Os documentos');
+    [['icp', 'Desafio 1 · ICP', '6 páginas'], ['diag', 'Desafio 2 · Diagnóstico', '9 páginas']].forEach(function (x) {
+      var url = DOCS[x[0]].url;
+      var dr = node('<div class="mk-docrow"><span class="mk-docrow-ico" aria-hidden="true">PDF</span><span class="mk-docrow-t"><b>' + x[1] + '</b><small>' + x[2] + ' · PDF original</small></span>' +
+        '<div class="mk-actions"><a class="mk-btn" href="' + url + '" download="' + url + '">Baixar ↓</a><a class="mk-btn" href="' + url + '" target="_blank" rel="noopener">Nova aba ↗</a><button class="mk-btn" type="button" data-full>Tela cheia ⤢</button></div></div>');
+      dr.querySelector('[data-full]').addEventListener('click', function () { abrir('documentos', x[0]); });
+      e.appendChild(dr);
+    });
   }
 
   window.CITI_ENTREGAS = window.CITI_ENTREGAS || {};

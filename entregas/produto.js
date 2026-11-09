@@ -242,26 +242,41 @@
   }
 
   /* ================= DA ENTREVISTA À TELA ================= */
-  function protoIr(passos) {
+  /* ---------- controle do protótipo embutido ----------
+     O protótipo (mesma origem) trata todo clique em [data-a] por delegação. Para acionar uma ação,
+     mesmo de uma tela que não está à vista, basta clicar num botão invisível com o data-a certo.
+     Passos: [ação, valor] aciona direto; ['btn', ação] só clica se o botão existir na tela; ['wait', ms] espera. */
+  function protoPronto(ifr, fn) {
+    var ok = false;
+    try { ok = ifr.contentDocument.readyState === 'complete' && !!ifr.contentDocument.querySelector('#app [data-a]'); } catch (e) {}
+    if (ok) { fn(); return; }
+    ifr.loading = 'eager';
+    ifr.addEventListener('load', function on() { ifr.removeEventListener('load', on); setTimeout(fn, 80); });
+  }
+  function protoRun(seq, depois) {
     var ifr = root && root.querySelector('.pd-frame iframe');
     if (!ifr) return;
-    ifr.closest('.pd-proto').scrollIntoView({ block: 'start', behavior: REDUCED ? 'auto' : 'smooth' });
-    function run() {
-      try {
-        var d = ifr.contentDocument;
-        passos.forEach(function (p) { var el = d.querySelector('[data-a="' + p[0] + '"][data-v="' + p[1] + '"]'); if (el) el.click(); });
-        ifr.contentWindow.scrollTo(0, 0);
-      } catch (e) {}
-    }
-    var pronto = false;
-    try { pronto = !!ifr.contentDocument.querySelector('[data-a="role"]'); } catch (e) {}
-    if (pronto) run();
-    else { ifr.loading = 'eager'; ifr.addEventListener('load', function on() { ifr.removeEventListener('load', on); setTimeout(run, 60); }); }
+    protoPronto(ifr, function () {
+      var d; try { d = ifr.contentDocument; } catch (e) { return; }
+      var k = 0;
+      (function next() {
+        if (k >= seq.length) { try { ifr.contentWindow.scrollTo(0, 0); } catch (e) {} if (depois) depois(); return; }
+        var p = seq[k++];
+        try {
+          if (p[0] === 'wait') { setTimeout(next, p[1]); return; }
+          if (p[0] === 'btn') { var el = d.querySelector('[data-a="' + p[1] + '"]' + (p[2] ? '[data-v="' + p[2] + '"]' : '')); if (el && !el.disabled) el.click(); }
+          else { var b = d.createElement('button'); b.type = 'button'; b.hidden = true; b.dataset.a = p[0]; if (p[1] != null) b.dataset.v = p[1]; d.body.appendChild(b); b.click(); b.remove(); }
+        } catch (e) {}
+        setTimeout(next, 60);
+      })();
+    });
   }
+  // a partir de outra aba: abre a aba do protótipo e mostra a tela pedida
+  function irProto(seq) { setAba('prototipo'); protoRun(seq); }
   var rastroQuem = 'todas';
   function rastro(container) {
     var c = node('<div class="mk-card pd-rastro"><p class="mk-label">Da entrevista à tela · cada funcionalidade nasceu de uma fala</p>' +
-      '<p class="cm-note">Antes de desenhar o protótipo, liguei o que a Joana e a Dona Célia pediram, quase com essas palavras, a uma tela da Trilha 10. Clique em “Ver no protótipo” para abrir a tela certa logo abaixo.</p></div>');
+      '<p class="cm-note">Antes de desenhar o protótipo, liguei o que a Joana e a Dona Célia pediram, quase com essas palavras, a uma tela da Trilha 10. Clique em “Ver no protótipo” para abrir a tela certa na aba do protótipo.</p></div>');
     var g = seg([['todas', 'Todas'], ['J', 'Joana'], ['C', 'Dona Célia']], 'Quem falou', 'is-sm');
     c.appendChild(g);
     var list = node('<ol class="pd-rastro-l"></ol>'); c.appendChild(list);
@@ -272,9 +287,9 @@
         if (rastroQuem !== 'todas' && r.q !== rastroQuem) return '';
         return '<li class="is-' + r.q + '"><div class="pd-r-fala"><span class="pd-av" aria-hidden="true">' + r.q + '</span><blockquote>“' + esc(r.t) + '”<cite>' + QUEM[r.q].nome + '</cite></blockquote></div>' +
           '<span class="pd-r-seta" aria-hidden="true">→</span>' +
-          '<div class="pd-r-tela"><b>' + esc(r.f) + '</b><p>' + esc(r.d) + '</p><button type="button" class="mk-btn" data-i="' + i + '">Ver no protótipo ↓</button></div></li>';
+          '<div class="pd-r-tela"><b>' + esc(r.f) + '</b><p>' + esc(r.d) + '</p><button type="button" class="mk-btn" data-i="' + i + '">Ver no protótipo →</button></div></li>';
       }).join('');
-      list.querySelectorAll('[data-i]').forEach(function (b) { b.addEventListener('click', function () { protoIr(RASTRO[+b.dataset.i].ir); }); });
+      list.querySelectorAll('[data-i]').forEach(function (b) { b.addEventListener('click', function () { irProto(RASTRO[+b.dataset.i].ir); }); });
     }
     g.querySelectorAll('button').forEach(function (b) { b.addEventListener('click', function () { rastroQuem = b.dataset.v; draw(); }); });
     draw();
@@ -406,15 +421,88 @@
     draw();
   }
 
+  /* ================= O PROTÓTIPO ================= */
+  var HIST = [
+    { t: 'A Dona Célia sabe que o horário é dela', quem: 'Paciente · WhatsApp', d: 'Na véspera da 5ª sessão ela recebe o lembrete e, antes disso, o aviso de que a renovação já foi pedida: terça e quinta, às 10h, continuam dela até a 10ª.', resolve: 'O horário repassado durante a espera do convênio', ir: [['role', 'paciente'], ['who', 'celia'], ['whats']] },
+    { t: 'Ela acompanha a renovação sem precisar ligar', quem: 'Paciente · página pelo link', d: 'Pelo link da mensagem, ela vê a trilha das 10 sessões e em que pé está o pedido ao plano.', resolve: 'A falta de notícia nos 3 a 10 dias úteis de espera', ir: [['role', 'paciente'], ['who', 'celia'], ['whats'], ['open']] },
+    { t: 'O convênio libera, sem pausa no tratamento', quem: 'Paciente · página pelo link', d: 'Como o pedido saiu na 3ª sessão, a resposta chega antes de a 5ª acabar: a 6ª já está confirmada, no mesmo horário.', resolve: 'O salto de 18% para 44% de faltas na 6ª sessão', ir: [['role', 'paciente'], ['who', 'celia'], ['whats'], ['open'], ['btn', 'simulate'], ['wait', 950]] },
+    { t: 'Um cancelamento vira vaga oferecida', quem: 'Joana · fila do dia', d: 'A Carla cancelou com menos de 24h. A Joana vê a vaga aberta e, com um clique, oferece ao primeiro da lista de espera que pode naquele horário.', resolve: 'As desmarcações tardias, hoje preenchidas “de cabeça”', ir: [['role', 'joana'], ['jtab', 'fila'], ['panel', '9|11h'], ['wait', 250], ['btn', 'offer']] },
+    { t: 'A mensagem que segura o paciente até a 10ª', quem: 'Joana · mensagens', d: 'A trilha de mensagens: depois da 4ª sessão, o paciente recebe por que as sessões 6 a 10 importam, mesmo com a dor passando.', resolve: 'A sensação de cura precoce, o maior grupo da pesquisa (39%)', ir: [['role', 'joana'], ['jtab', 'msgs']] },
+    { t: 'O Ricardo vê o dinheiro voltar', quem: 'Ricardo · painel do dono', d: 'Em “Com a Trilha 10”, o painel mostra quanto das cadeiras vazias volta a faturar, com as premissas na mão para ele testar.', resolve: 'Decidir com dado, e não pelo palpite do esquecimento', ir: [['role', 'ricardo'], ['mode', 'trilha']] }
+  ];
+  var passo = -1;
   function prototipo(container) {
-    var c = node('<div class="mk-card pd-proto"></div>');
-    c.innerHTML = '<div class="pd-proto-top"><div><p class="mk-label">Minha parte · o protótipo da solução</p><h3>Trilha 10</h3><p class="cm-note">Plataforma web com acesso por perfil e WhatsApp automatizado. Use “Ver como” no topo para alternar entre paciente, recepção (Joana), fisioterapeuta e o dono (Ricardo), e siga as dicas de próximo passo.</p></div>' +
-      '<div class="mk-actions"><a class="mk-btn is-main" href="' + PROTO + '" target="_blank" rel="noopener">Abrir em nova aba ↗</a></div></div>';
-    var frame = node('<div class="pd-frame"><div class="pd-frame-bar"><i></i><i></i><i></i><span>trilha10 · protótipo de média/baixa fidelidade</span></div></div>');
+    var c = node('<div class="pd-proto"></div>');
+    c.innerHTML = '<div class="pd-proto-top"><div><p class="mk-label">Minha parte · protótipo navegável</p><h3>Trilha 10</h3>' +
+      '<p class="cm-note">Plataforma web com acesso por perfil e WhatsApp automatizado. Siga a história da Dona Célia passo a passo, ou explore livremente usando “Ver como” no topo do protótipo.</p></div>' +
+      '<div class="mk-actions"><button class="mk-btn is-main" type="button" data-full>Tela cheia ⤢</button><a class="mk-btn" href="' + PROTO + '" target="_blank" rel="noopener">Abrir em nova aba ↗</a></div></div>';
+    var stage = node('<div class="pd-stage"></div>');
+    var story = node('<aside class="pd-story" aria-label="A história da Dona Célia em 6 passos"></aside>');
+    story.innerHTML = '<div class="pd-story-head"><p class="mk-label">A história da Dona Célia em 6 passos</p><span class="pd-prog" aria-live="polite"></span></div>' +
+      '<div class="pd-progbar" aria-hidden="true"><i></i></div><ol class="pd-steps"></ol><div class="pd-story-cur" aria-live="polite"></div>' +
+      '<div class="pd-story-nav"><button type="button" class="mk-btn" data-nav="-1">← Anterior</button><button type="button" class="mk-btn is-main" data-nav="1"></button></div>' +
+      '<button type="button" class="pd-restart" hidden>Recomeçar a história</button>';
+    var frame = node('<div class="pd-frame"><div class="pd-frame-bar"><i></i><i></i><i></i><span>trilha10 · protótipo navegável</span><button type="button" class="pd-exit" data-exit hidden>Sair da tela cheia ✕</button></div></div>');
     var ifr = document.createElement('iframe');
-    ifr.title = 'Protótipo Trilha 10'; ifr.loading = 'lazy'; ifr.src = PROTO;
-    frame.appendChild(ifr); c.appendChild(frame);
+    ifr.title = 'Protótipo Trilha 10'; ifr.src = PROTO;
+    frame.appendChild(ifr);
+    stage.appendChild(story); stage.appendChild(frame);
+    c.appendChild(stage);
     container.appendChild(c);
+
+    var list = story.querySelector('.pd-steps'), prog = story.querySelector('.pd-prog'), bar = story.querySelector('.pd-progbar i');
+    var prev = story.querySelector('[data-nav="-1"]'), next = story.querySelector('[data-nav="1"]'), restart = story.querySelector('.pd-restart');
+    list.innerHTML = HIST.map(function (h, i) {
+      return '<li><button type="button" data-p="' + i + '"><span class="pd-step-n">' + (i + 1) + '</span><span class="pd-step-t"><b>' + esc(h.t) + '</b><small>' + esc(h.quem) + '</small></span></button>' +
+        '<div class="pd-step-d"><p>' + esc(h.d) + '</p><p class="pd-resolve"><span>Resolve</span>' + esc(h.resolve) + '</p></div></li>';
+    }).join('');
+    function draw() {
+      list.querySelectorAll('li').forEach(function (li, i) { li.className = i === passo ? 'is-on' : i < passo ? 'is-done' : ''; li.querySelector('button').setAttribute('aria-current', i === passo ? 'step' : 'false'); });
+      prog.textContent = passo < 0 ? '6 passos · 1 minuto' : 'Passo ' + (passo + 1) + ' de ' + HIST.length;
+      bar.style.width = ((passo + 1) / HIST.length * 100) + '%';
+      prev.disabled = passo <= 0;
+      next.textContent = passo < 0 ? 'Começar a história ▶' : passo >= HIST.length - 1 ? 'Fim da história ✓' : 'Próximo passo →';
+      next.disabled = passo >= HIST.length - 1;
+      restart.hidden = passo < HIST.length - 1;
+      var h = HIST[passo];
+      story.querySelector('.pd-story-cur').innerHTML = h
+        ? '<small>Passo ' + (passo + 1) + ' · ' + esc(h.quem) + '</small><b>' + esc(h.t) + '</b><p>' + esc(h.d) + '</p><p class="pd-resolve"><span>Resolve</span>' + esc(h.resolve) + '</p>'
+        : '<b>Siga a história ou explore à vontade</b><p>Em 6 passos, o protótipo mostra cada problema encontrado sendo resolvido, da Dona Célia ao Ricardo.</p>';
+    }
+    function ir(i) {
+      passo = Math.max(0, Math.min(HIST.length - 1, i)); draw();
+      protoRun(HIST[passo].ir);
+      var on = list.querySelector('li.is-on');
+      if (on && stage.classList.contains('is-full')) on.scrollIntoView({ block: 'nearest' });
+    }
+    list.querySelectorAll('[data-p]').forEach(function (b) { b.addEventListener('click', function () { ir(+b.dataset.p); }); });
+    prev.addEventListener('click', function () { ir(passo - 1); });
+    next.addEventListener('click', function () { ir(passo + 1); });
+    restart.addEventListener('click', function () { protoRun([['reset']], function () { ir(0); }); });
+
+    // tela cheia: a API do navegador quando existe (computador e Android); no iPhone, o quadro cobre a tela por CSS
+    var exitBtn = frame.querySelector('[data-exit]'), fullBtn = c.querySelector('[data-full]');
+    function setFull(on) {
+      stage.classList.toggle('is-full', on); exitBtn.hidden = !on;
+      fullBtn.textContent = on ? 'Sair da tela cheia' : 'Tela cheia ⤢';
+      root.classList.toggle('pd-has-full', on);
+    }
+    function entrar() {
+      setFull(true);
+      if (stage.requestFullscreen) stage.requestFullscreen().catch(function () {});
+      else if (stage.webkitRequestFullscreen) try { stage.webkitRequestFullscreen(); } catch (e) {}
+    }
+    function sair() {
+      var fe = document.fullscreenElement || document.webkitFullscreenElement;
+      if (fe) { (document.exitFullscreen || document.webkitExitFullscreen).call(document); }
+      setFull(false);
+    }
+    fullBtn.addEventListener('click', function () { if (stage.classList.contains('is-full')) sair(); else entrar(); });
+    exitBtn.addEventListener('click', sair);
+    function onFs() { if (!(document.fullscreenElement || document.webkitFullscreenElement) && stage.classList.contains('is-full')) setFull(false); }
+    document.addEventListener('fullscreenchange', onFs); document.addEventListener('webkitfullscreenchange', onFs);
+    prototipo.sair = function () { if (stage.classList.contains('is-full')) { sair(); return true; } return false; };
+    passo = -1; draw();
   }
 
   function telas(container) {
@@ -491,7 +579,7 @@
 
   /* ================= TELA CHEIA ================= */
   var root, body, lastFocus, aba = 'problema';
-  var TABS = [['problema', 'O problema'], ['numeros', 'Os números'], ['solucao', 'A solução e o protótipo'], ['documento', 'Documento e grupo']];
+  var TABS = [['problema', 'O problema'], ['prototipo', 'Protótipo navegável'], ['numeros', 'Os números'], ['solucao', 'A solução'], ['documento', 'Documento e grupo']];
   function build() {
     root = node('<div id="pd" role="dialog" aria-modal="true" aria-labelledby="pd-title" hidden></div>');
     root.innerHTML =
@@ -506,7 +594,7 @@
     document.body.appendChild(root);
     window.addEventListener('keydown', function (e) {
       if (root.hidden) return;
-      if (e.key === 'Escape') { fechar(); e.stopImmediatePropagation(); }
+      if (e.key === 'Escape') { if (!(prototipo.sair && prototipo.sair())) fechar(); e.stopImmediatePropagation(); }
       else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') e.stopImmediatePropagation();
     }, true);
   }
@@ -525,17 +613,19 @@
   }
   function setAba(t) {
     aba = t;
+    if (prototipo.sair) { prototipo.sair(); prototipo.sair = null; }
     root.querySelectorAll('[data-tab]').forEach(function (b) { b.setAttribute('aria-selected', b.dataset.tab === t ? 'true' : 'false'); });
     body.innerHTML = '';
     vozesDraw = null;
-    body.appendChild(hero());
+    body.appendChild(window.CITI_RESUMO ? window.CITI_RESUMO(hero(), t === 'problema' ? 'medio' : 'fino') : hero());
     if (t === 'problema') {
       quiz(body); vozes(body);
       var g = node('<div class="pd-two"></div>'); body.appendChild(g);
       grafSessoes(g, false); grafHoras(g);
       divergencias(body);
     } else if (t === 'numeros') { custo(body); simulador(body); agencia(body); porQueBV(body); }
-    else if (t === 'solucao') { jornada(body); rastro(body); prototipo(body); telas(body); escopo(body); }
+    else if (t === 'prototipo') { prototipo(body); telas(body); }
+    else if (t === 'solucao') { jornada(body); rastro(body); escopo(body); }
     else {
       grupo(body, false);
       var d = node('<div class="mk-card" style="display:grid;gap:14px"><div class="mk-doc-bar"><p>' + DOC.nome + ' · ' + DOC.pags + ' páginas · PDF</p><div class="mk-actions">' + pdfButtons() + '</div></div></div>');
@@ -553,6 +643,7 @@
   }
   function fechar() {
     if (!root || root.hidden) return;
+    if (prototipo.sair) { prototipo.sair(); prototipo.sair = null; }
     root.classList.remove('is-open');
     setTimeout(function () { if (root.classList.contains('is-open')) return; root.hidden = true; body.innerHTML = ''; }, 280);   // tira o iframe do protótipo da memória
     if (lastFocus && lastFocus.focus) lastFocus.focus({ preventScroll: true });
@@ -563,15 +654,10 @@
     function sec(title) { var s = document.createElement('section'); s.className = 'p-sec'; var h3 = document.createElement('h3'); h3.textContent = title; s.appendChild(h3); container.appendChild(s); return s; }
     var a = sec('Nossa resposta');
     a.appendChild(node('<div class="pd-answer"><strong>Não é esquecimento: é a renovação do convênio</strong><span>R$ 18.225,90 perdidos por mês. A falta do convênio salta de 18% para 44% na 6ª sessão. Proposta: renovação antecipada na 3ª sessão e lista de espera ativa, por R$ 18 mil em 10 semanas, com payback de ~2,1 meses.</span></div>'));
-    var e = sec('Nossa entrega');
-    pdfView(e, false);
-    var acts = node('<div class="mk-actions">' + pdfButtons('<button class="mk-btn" type="button" data-full>Tela cheia ⤢</button>') + '</div>');
-    acts.querySelector('[data-full]').addEventListener('click', function () { abrir('documento'); });
-    e.appendChild(acts);
     var p = sec('Minha parte: o protótipo');
-    p.appendChild(node('<p class="pd-proto-p">Trilha 10: plataforma web com WhatsApp automatizado, com telas para o paciente, a recepção, o fisioterapeuta e o dono. Dá para usar.</p>'));
-    var pa = node('<div class="mk-actions"><button class="mk-btn is-main" type="button">Abrir o protótipo →</button><a class="mk-btn" href="' + PROTO + '" target="_blank" rel="noopener">Nova aba ↗</a></div>');
-    pa.querySelector('button').addEventListener('click', function () { abrir('solucao'); });
+    p.appendChild(node('<p class="pd-proto-p">Trilha 10: plataforma web com WhatsApp automatizado, com telas para o paciente, a recepção, o fisioterapeuta e o dono. Dá para usar, e tem uma história guiada de 1 minuto.</p>'));
+    var pa = node('<div class="mk-actions"><button class="mk-btn is-main" type="button">▶ Usar o protótipo</button><a class="mk-btn" href="' + PROTO + '" target="_blank" rel="noopener">Nova aba ↗</a></div>');
+    pa.querySelector('button').addEventListener('click', function () { abrir('prototipo'); });
     p.appendChild(pa);
     var s = sec('O salto da 6ª sessão');
     grafSessoes(s, true);
@@ -580,6 +666,11 @@
     s.appendChild(sb);
     var g = sec('Entrega em grupo');
     grupo(g, true);
+    var e = sec('O documento');
+    var dr = node('<div class="mk-docrow"><span class="mk-docrow-ico" aria-hidden="true">PDF</span><span class="mk-docrow-t"><b>Grupo 5 · Desafio Produto PTC 26.2</b><small>13 páginas · PDF original</small></span>' +
+      '<div class="mk-actions"><a class="mk-btn" href="' + DOC.url + '" download="' + DOC.url + '">Baixar ↓</a><a class="mk-btn" href="' + DOC.url + '" target="_blank" rel="noopener">Nova aba ↗</a><button class="mk-btn" type="button" data-full>Tela cheia ⤢</button></div></div>');
+    dr.querySelector('[data-full]').addEventListener('click', function () { abrir('documento'); });
+    e.appendChild(dr);
   }
 
   window.CITI_ENTREGAS = window.CITI_ENTREGAS || {};

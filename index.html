@@ -26,6 +26,8 @@
 <link rel="stylesheet" href="entregas/marketing.css">
 <link rel="stylesheet" href="entregas/dev.css">
 <link rel="stylesheet" href="entregas/gente.css">
+<link rel="stylesheet" href="entregas/produto.css">
+<link rel="stylesheet" href="entregas/comercial.css">
 
 <script>
   window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
@@ -428,6 +430,8 @@ body.has-overlay #panel, body.has-overlay .hud-top, body.has-overlay .hud-bottom
 <script src="entregas/dev-data.js"></script>
 <script src="entregas/dev.js"></script>
 <script src="entregas/gente.js"></script>
+<script src="entregas/produto.js"></script>
+<script src="entregas/comercial.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
@@ -800,10 +804,10 @@ var BODIES = [
   { key: 'gente', name: 'Gente e Gestão', status: 'liberado', color: '#b9a6ff', tag: 'Cuidar de quem faz a empresa acontecer.',
     symbol: 'Quatro luas orbitam o planeta e, no lado da noite, as cidades acendem. Uma empresa é feita de pessoas que se movem juntas.',
     file: ['PDF', 'desafio-gente-e-gestao.pdf'] },
-  { key: 'produto', name: 'Produto', color: '#7fb8ff', tag: 'Descobrir o problema certo antes da solução.',
+  { key: 'produto', name: 'Produto', status: 'liberado', color: '#7fb8ff', tag: 'Descobrir o problema certo antes da solução.',
     symbol: 'Uma malha de wireframe envolve o planeta: o produto ainda em construção, camada por camada.',
     file: ['PDF', 'desafio-produto.pdf'] },
-  { key: 'comercial', name: 'Comercial', color: '#f2c14e', tag: 'Conectar o CITi a quem precisa dele.',
+  { key: 'comercial', name: 'Comercial', status: 'liberado', color: '#f2c14e', tag: 'Conectar o CITi a quem precisa dele.',
     symbol: 'Rotas cruzam o planeta e cargas viajam por elas, como rotas de comércio. À noite, os cânions acendem como estradas.',
     file: ['PDF', 'desafio-comercial.pdf'] }
 ];
@@ -2768,7 +2772,7 @@ function damp(k, dt) { return 1 - Math.exp(-k * dt); }
 function tick() {
   // com uma entrega aberta em tela cheia, o sistema solar fica escondido atrás dela: pausa o 3D e poupa o computador
   // (o modo lista também cobre a tela inteira)
-  var overlayOpen = !!document.querySelector('#dx:not([hidden]), #mk:not([hidden]), #dv:not([hidden]), #gg:not([hidden])');
+  var overlayOpen = !!document.querySelector('#dx:not([hidden]), #mk:not([hidden]), #dv:not([hidden]), #gg:not([hidden]), #pd:not([hidden]), #cm:not([hidden])');
   document.body.classList.toggle('has-overlay', overlayOpen);
   if (!listEl.hidden || overlayOpen) { clock.getDelta(); quality.acc = quality.n = 0; requestAnimationFrame(tick); return; }
   var rawDt = clock.getDelta(), dt = Math.min(rawDt, 0.05), t = clock.elapsedTime;

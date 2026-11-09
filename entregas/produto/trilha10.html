@@ -1,0 +1,1252 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Trilha 10</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&display=swap">
+<style>
+/* Layout: paciente em coluna única e acolhedora; equipe em painéis finos, separados por linhas. Tema claro único, definido no briefing. */
+:root{
+  --bg:#FAF8F3;--surface:#FFFFFF;--ink:#1A1A18;--ink-2:#5F5E58;--line:#E7E3DA;--line-2:#CFCABE;
+  --blue:#1B5FE0;--blue-soft:#E9F0FE;--green:#1F8A5B;--green-soft:#E6F4EC;--green-ink:#176B46;
+  --amber:#8A5200;--amber-soft:#FFF4E0;--amber-line:#EBCF9F;--bar:#D8D3C7;--red:#B3261E;--red-soft:#FCEBE9;--chat:#F1EDE4;
+  --serif:"Newsreader",Georgia,"Times New Roman",serif;--sans:"Inter",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --r-field:8px;--r-card:14px;--t:180ms ease;
+}
+*{box-sizing:border-box}
+#live{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+html,body{height:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.5;-webkit-font-smoothing:antialiased}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:30;background:var(--surface)}
+h1,h2,h3,p,ol,ul{margin:0;padding:0}
+ol,ul{list-style:none}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+button:disabled{cursor:default}
+:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+.gutter{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+
+/* Barra de demonstração */
+.demo{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--surface);border-bottom:1px solid var(--line)}
+.demo-row{max-width:1280px;margin:0 auto;display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px;padding-block:10px}
+.demo-label{font-size:13px;font-weight:600}
+.demo-who{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--ink-2)}
+.seg{display:inline-flex;gap:2px;padding:2px;background:var(--bg);border:1px solid var(--line);border-radius:999px}
+.seg button{min-height:36px;padding:0 14px;border-radius:999px;font-size:14px;font-weight:500;color:var(--ink-2);transition:background var(--t),color var(--t)}
+.seg button:hover{color:var(--ink)}
+.seg button[aria-pressed="true"]{background:var(--ink);color:#fff}
+.demo-side{margin-left:auto;display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.ghost{min-height:40px;padding:0 16px;border:1px solid var(--line-2);border-radius:999px;background:var(--surface);font-size:14px;font-weight:600;display:inline-flex;align-items:center;gap:8px;transition:background var(--t),border-color var(--t)}
+.ghost:hover:not(:disabled){background:var(--bg);border-color:var(--ink)}
+.ghost:disabled{color:var(--ink-2)}
+.link{min-height:40px;padding:0 8px;font-size:14px;color:var(--ink-2);text-decoration:underline;text-underline-offset:3px}
+.link:hover{color:var(--ink)}
+.hint{border-top:1px solid var(--line);background:var(--bg);font-size:13px;color:var(--ink-2)}
+.hint div{max-width:1280px;margin:0 auto;padding-block:6px}
+.hint strong{color:var(--ink);font-weight:600}
+.spin{width:14px;height:14px;border:2px solid var(--line-2);border-top-color:var(--blue);border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* Botões */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:48px;padding:0 22px;border-radius:999px;background:var(--ink);color:#fff;font-weight:600;font-size:16px;transition:background var(--t),transform var(--t)}
+.btn:hover:not(:disabled){background:#3A3A36}
+.btn:active:not(:disabled){transform:scale(.98)}
+.btn:disabled{background:var(--line);color:var(--ink-2)}
+.btn.small{min-height:40px;padding:0 16px;font-size:14px}
+.btn.block{width:100%}
+.btn.line{background:var(--surface);color:var(--ink);border:1px solid var(--line-2)}
+.btn.line:hover:not(:disabled){background:var(--bg);border-color:var(--ink)}
+
+/* Paciente */
+.patient{max-width:472px;margin:0 auto;padding-block:32px 56px;display:grid;gap:24px}
+.chat{background:var(--chat);border:1px solid var(--line);border-radius:var(--r-card);overflow:hidden}
+.chat-head{background:var(--surface);border-bottom:1px solid var(--line);padding:16px 20px}
+.chat-head strong{display:block;font-family:var(--serif);font-size:22px;font-weight:500;line-height:1.25}
+.chat-head span{font-size:14px;color:var(--ink-2)}
+.chat-body{padding:20px 16px 24px;display:grid;gap:12px;min-height:420px;align-content:start}
+.day{justify-self:center;font-size:13px;color:var(--ink-2)}
+.bubble{background:var(--surface);border:1px solid var(--line);border-radius:4px 14px 14px 14px;padding:14px 16px;font-size:18px;line-height:1.42;max-width:94%}
+.bubble time{display:block;margin-top:4px;font-size:13px;color:var(--ink-2)}
+.hello h1{font-family:var(--serif);font-size:40px;font-weight:500;line-height:1.1;letter-spacing:-.01em}
+.hello p{margin-top:8px;font-size:18px;color:var(--ink-2)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-card)}
+.promise{padding:20px}
+.promise h2{font-family:var(--serif);font-size:26px;font-weight:500;line-height:1.2}
+.promise p{margin-top:4px;font-size:18px}
+.promise.ok{background:var(--green-soft);border-color:#BFE0CD}
+.sec{padding:20px;display:grid;gap:16px}
+.sec h2{font-size:18px;font-weight:600;line-height:1.3}
+.track{display:grid}
+.track li{position:relative;display:grid;grid-template-columns:32px 1fr;gap:12px;padding-bottom:20px;font-size:18px;line-height:32px;color:var(--ink-2)}
+.track li:last-child{padding-bottom:0}
+.track li::before{content:"";position:absolute;left:15px;top:32px;bottom:0;width:2px;background:var(--line)}
+.track li:last-child::before{display:none}
+.track li.done::before{background:var(--blue)}
+.track li.done,.track li.now{color:var(--ink)}
+.track li.now{font-weight:600}
+.mark{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;background:var(--surface);border:2px solid var(--line-2);position:relative;z-index:1}
+.done .mark{background:var(--blue);border-color:var(--blue);color:#fff}
+.now .mark{border-color:var(--blue)}
+.now .mark::after{content:"";width:12px;height:12px;border-radius:50%;background:var(--blue);animation:pulse 1.8s ease-in-out infinite}
+@keyframes pulse{50%{transform:scale(.7);opacity:.6}}
+.track-note{font-size:17px;line-height:1.45;background:var(--blue-soft);border-radius:var(--r-field);padding:12px 14px}
+.track-note.ok{background:var(--green-soft)}
+.trail-group{display:grid;gap:8px}
+.trail-group>span{font-size:15px;color:var(--ink-2)}
+.trail{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}
+.node{aspect-ratio:1;max-width:64px;width:100%;justify-self:center;border-radius:50%;display:grid;place-items:center;font-size:18px;font-weight:600;font-variant-numeric:tabular-nums;border:2px solid transparent}
+.node.done{background:var(--blue);color:#fff}
+.node.next{background:var(--surface);border-color:var(--ink);color:var(--ink)}
+.node.held{background:var(--surface);border:2px dashed var(--line-2);color:var(--ink-2)}
+.node.sure{background:var(--green-soft);border-color:var(--green);color:var(--green-ink)}
+.gate{display:flex;align-items:center;gap:8px;font-size:15px;font-weight:600;color:var(--blue)}
+.gate::before,.gate::after{content:"";flex:1;height:1px;background:var(--line-2)}
+.gate.ok{color:var(--green-ink)}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:14px;color:var(--ink-2)}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:50%;margin-right:6px;vertical-align:-1px}
+.why{font-family:var(--serif);font-size:21px;line-height:1.35}
+.back{justify-self:start;padding:0;min-height:44px;font-size:15px;color:var(--ink-2);text-decoration:underline;text-underline-offset:3px}
+.notice{font-size:17px;line-height:1.45;padding:14px 16px;border-radius:var(--r-card);background:var(--amber-soft);border:1px solid var(--amber-line)}
+.actions2{display:grid;gap:10px}
+.patient.wide{max-width:1040px}
+.cols,.col-a,.col-b{display:grid;gap:24px}
+.cols{align-items:start}
+.now.wait .mark::after{width:14px;height:14px;background:none;border:2px solid var(--line-2);border-top-color:var(--blue);border-radius:50%;animation:spin .7s linear infinite}
+@media (min-width:960px){.cols{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:32px}.patient.wide{padding-block:40px 64px}.patient.wide .hello h1{font-size:48px}.patient.wide .node{max-width:72px}}
+.notice.ok{background:var(--green-soft);border-color:#BFE0CD}
+
+/* Modal de remarcação */
+.veil{position:fixed;inset:0;z-index:40;background:rgba(26,26,24,.38);display:flex;align-items:flex-end;justify-content:center}
+.sheet{width:100%;max-width:520px;max-height:90%;overflow:auto;background:var(--surface);border-radius:var(--r-card) var(--r-card) 0 0;padding:24px max(20px,env(safe-area-inset-right,0px)) calc(24px + env(safe-area-inset-bottom,0px)) max(20px,env(safe-area-inset-left,0px));display:grid;gap:16px;animation:rise 200ms ease}
+@keyframes rise{from{transform:translateY(16px);opacity:.6}}
+.sheet h2{font-family:var(--serif);font-size:28px;font-weight:500;line-height:1.2}
+.sheet-sub{font-size:17px;color:var(--ink-2)}
+.days{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.daycard{display:grid;justify-items:start;gap:0;padding:12px;min-height:104px;border:1px solid var(--line-2);border-radius:var(--r-card);text-align:left;transition:background var(--t),border-color var(--t)}
+.daycard span{font-size:14px;color:var(--ink-2)}
+.daycard b{font-size:24px;font-weight:600;line-height:1.3;font-variant-numeric:tabular-nums}
+.daycard small{font-size:13px;color:var(--ink-2);display:flex;align-items:center;gap:6px}
+.daycard small i{width:7px;height:7px;border-radius:50%;background:var(--green)}
+.daycard:hover:not(:disabled){border-color:var(--ink)}
+.daycard[aria-pressed="true"]{background:var(--blue-soft);border-color:var(--blue)}
+.daycard:disabled{background:var(--bg);border-color:var(--line)}
+.times{display:flex;flex-wrap:wrap;gap:8px}
+.times button{min-height:48px;min-width:80px;padding:0 16px;border:1px solid var(--line-2);border-radius:var(--r-field);font-size:17px;font-weight:600;transition:background var(--t),border-color var(--t)}
+.times button:hover{border-color:var(--ink)}
+.times button[aria-pressed="true"]{background:var(--blue-soft);border-color:var(--blue)}
+
+/* Equipe */
+.team{max-width:1280px;margin:0 auto;padding-block:32px 40px}
+.brand{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 12px;font-size:14px;color:var(--ink-2);margin-bottom:24px}
+.brand strong{font-family:var(--serif);font-size:20px;font-weight:600;color:var(--ink)}
+.title h1{font-family:var(--serif);font-size:44px;font-weight:500;line-height:1.1;letter-spacing:-.012em}
+.title p{margin-top:6px;font-size:18px;color:var(--ink-2)}
+.queue-grid{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:40px;margin-top:32px;align-items:start}
+.lane+.lane{margin-top:32px}
+.lane>h2,.aside h2{font-size:13px;font-weight:600;letter-spacing:.06em;color:var(--ink-2);padding-bottom:10px}
+.urgent{background:var(--amber-soft);border:1px solid var(--amber-line);border-radius:var(--r-card);padding:20px 24px;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:16px}
+.urgent .tag{font-size:13px;font-weight:600;color:var(--amber)}
+.urgent h3{font-family:var(--serif);font-size:28px;font-weight:500;line-height:1.2;margin-top:2px}
+.urgent p{font-size:16px}
+.urgent>div{min-width:0;flex:1 1 300px}
+.tasks{border-top:1px solid var(--line)}
+.task{display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px;padding:16px 0;border-bottom:1px solid var(--line)}
+.task>div{flex:1 1 280px;min-width:0}
+.task b{font-weight:600}
+.task p{font-size:15px;color:var(--ink-2)}
+.empty{font-family:var(--serif);font-size:22px;padding:16px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.aside{display:grid;gap:32px}
+.mini{border-top:1px solid var(--line)}
+.mini li{padding:12px 0;border-bottom:1px solid var(--line);font-size:15px;line-height:1.4}
+.mini b{font-weight:600}
+.mini span{display:block;color:var(--ink-2);font-size:14px}
+.check{display:flex;gap:10px;align-items:flex-start}
+.check svg{flex:none;margin-top:3px;color:var(--green)}
+.mini .none{color:var(--ink-2)}
+.foot{margin-top:40px;padding-top:12px;border-top:1px solid var(--line);font-size:13px;color:var(--ink-2)}
+
+.panel-veil{position:fixed;inset:0;z-index:40;background:rgba(26,26,24,.28);display:flex;justify-content:flex-end}
+.panel{width:min(460px,100%);height:100%;overflow:auto;background:var(--surface);border-left:1px solid var(--line);padding:24px max(24px,env(safe-area-inset-right,0px)) 24px 24px;display:grid;gap:20px;align-content:start;animation:slide 200ms ease}
+@keyframes slide{from{transform:translateX(20px);opacity:.6}}
+.panel-top{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+.panel h2{font-family:var(--serif);font-size:28px;font-weight:500;line-height:1.2}
+.panel-sub{font-size:15px;color:var(--ink-2)}
+.rule{background:var(--blue-soft);border-radius:var(--r-field);padding:12px 14px;font-size:15px}
+.close{width:44px;height:44px;flex:none;display:grid;place-items:center;border-radius:50%}
+.close:hover{background:var(--bg)}
+.person{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 12px;align-items:center;padding:14px 0;border-bottom:1px solid var(--line)}
+.person p{font-size:14px;color:var(--ink-2)}
+.person .misfit{font-size:13px;color:var(--ink-2)}
+
+/* Painel do Ricardo */
+.top{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:16px;margin-top:0}
+.filters{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.chip{font-size:14px;color:var(--ink-2);padding:4px 12px;border:1px solid var(--line);border-radius:999px;background:var(--surface)}
+.hero{margin-top:24px;padding-block:24px;border-top:1px solid var(--line);border-bottom:1px solid var(--line);display:grid;grid-template-columns:minmax(0,1fr) auto;gap:16px 40px;align-items:center}
+.big{font-family:var(--serif);font-size:clamp(52px,8.4vw,92px);font-weight:500;line-height:1;letter-spacing:-.02em;font-variant-numeric:lining-nums tabular-nums}
+.big-label{font-size:20px;margin-top:6px}
+.big-sub{font-size:16px;color:var(--ink-2)}
+.pill{display:inline-block;margin-top:10px;font-size:13px;font-weight:600;color:var(--green-ink);background:var(--green-soft);padding:3px 10px;border-radius:999px}
+.now-note{margin-top:16px;display:flex;gap:10px;align-items:center;font-size:15px}
+.now-note svg{color:var(--green);flex:none}
+.charts{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(0,1fr);gap:40px;margin-top:28px}
+.chart h2{font-size:18px;font-weight:600;line-height:1.3}
+.chart .say{font-family:var(--serif);font-size:24px;line-height:1.25;margin-top:4px}
+.chart .src{font-size:13px;color:var(--ink-2);margin-top:4px}
+.plot{position:relative;height:250px;margin-top:20px;border-bottom:1px solid var(--line-2)}
+.gridline{position:absolute;left:0;right:0;border-top:1px solid var(--line)}
+.gridline span{position:absolute;left:0;top:-18px;font-size:12px;color:var(--ink-2);font-variant-numeric:tabular-nums}
+.bars{position:absolute;inset:0;display:grid;grid-template-columns:repeat(10,minmax(0,1fr));gap:clamp(4px,1vw,12px);padding-left:32px;align-items:end}
+.col{position:relative;background:var(--bar);border-radius:4px 4px 0 0;display:flex;justify-content:center}
+.col em{position:absolute;top:-22px;font-style:normal;font-size:13px;color:var(--ink-2);font-variant-numeric:tabular-nums}
+.col.peak{background:var(--blue)}
+.col.peak em{color:var(--blue);font-weight:700;font-size:15px;top:-24px}
+.xs{display:grid;grid-template-columns:repeat(10,minmax(0,1fr));gap:clamp(4px,1vw,12px);padding-left:32px;margin-top:6px;font-size:13px;color:var(--ink-2);text-align:center}
+.xs b{color:var(--blue)}
+.heat{display:grid;gap:4px;margin-top:20px}
+.heat li{display:flex;justify-content:space-between;align-items:center;min-height:56px;padding:0 16px;border-radius:var(--r-field);font-size:15px}
+.heat b{font-size:20px;font-weight:600;font-variant-numeric:tabular-nums}
+.pop{animation:pop 220ms ease}
+@keyframes pop{from{transform:scale(.94);opacity:.5}}
+
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));z-index:50;width:min(460px,calc(100% - 32px));background:var(--ink);color:#fff;border-radius:var(--r-card);padding:14px 18px;font-size:15px;display:flex;gap:10px;align-items:center;animation:toast 200ms ease}
+@keyframes toast{from{transform:translate(-50%,10px);opacity:0}}
+.toast svg{flex:none}
+
+
+/* calendário, agenda, destinatários */
+.cal{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin-top:24px}
+.cal .link{flex-basis:100%;text-align:left;min-height:32px}
+.calstrip{display:flex;gap:8px;overflow-x:auto;flex:1 1 0;min-width:0;position:relative;padding:4px 2px;scrollbar-width:none}
+.calstrip::-webkit-scrollbar{display:none}
+.calday{flex:none;width:68px;min-height:84px;border:1px solid var(--line-2);border-radius:var(--r-field);background:var(--surface);display:grid;gap:2px;justify-items:center;align-content:center;padding:8px 4px;transition:background var(--t),border-color var(--t)}
+.calday:hover{border-color:var(--ink)}
+.calday span{font-size:13px;color:var(--ink-2)}
+.calday b{font-size:20px;font-variant-numeric:tabular-nums}
+.calday small{font-size:12px;color:var(--ink-2);min-height:16px;white-space:nowrap}
+.calday small.ok{color:var(--green-ink)}
+.calday small.todo{color:var(--amber);font-weight:600}
+.calday.today{border-color:var(--ink);border-width:2px}
+.calday[aria-pressed="true"]{background:var(--ink);border-color:var(--ink)}
+.calday[aria-pressed="true"] span,.calday[aria-pressed="true"] b,.calday[aria-pressed="true"] small{color:#fff}
+.calnav{width:44px;height:44px;border:1px solid var(--line-2);border-radius:50%;background:var(--surface);font-size:22px;line-height:1;display:grid;place-items:center;flex:none}
+.calnav:hover:not(:disabled){border-color:var(--ink)}
+.calnav:disabled{opacity:.35}
+.h2s{font-size:15px;font-weight:600;color:var(--ink-2);margin:28px 0 8px}
+.ag{border-top:1px solid var(--line)}
+.ag-row{display:grid;grid-template-columns:56px minmax(0,1fr) auto;gap:12px;align-items:center;min-height:60px;padding:8px 0;border-bottom:1px solid var(--line)}
+.ag-row.free{background:var(--green-soft);margin-inline:-12px;padding-inline:12px}
+.ag-h{font-weight:600;font-variant-numeric:tabular-nums}
+.ag-w b{display:block;font-weight:600}
+.ag-w small{font-size:14px;color:var(--ink-2)}
+.ag-row.free .ag-w b{color:var(--green-ink)}
+.badge{display:inline-flex;align-items:center;min-height:32px;padding:0 12px;border-radius:999px;font-size:14px;font-weight:600;width:fit-content;background:var(--line)}
+.badge.st-veio{background:var(--green-soft);color:var(--green-ink)}
+.badge.st-menos{background:var(--amber-soft);color:var(--amber)}
+.badge.st-mais{background:var(--blue-soft);color:var(--blue)}
+.badge.st-faltou{background:var(--red-soft);color:var(--red)}
+.fld{display:block;font-size:15px;font-weight:600;margin-top:4px}
+.inp{width:100%;min-height:48px;padding:0 14px;border:1px solid var(--line-2);border-radius:var(--r-field);font-size:16px;background:var(--surface)}
+.inp:focus{outline:2px solid var(--blue);outline-offset:1px}
+.rcp{display:grid;gap:10px;border-top:1px solid var(--line);padding-top:14px}
+.rcp-h{display:flex;flex-wrap:wrap;gap:2px 12px;align-items:baseline}
+.rcp-h b{font-size:15px}
+.rcp-h span{font-size:14px;color:var(--ink-2)}
+.rcp-list{display:grid;gap:6px}
+.chk{display:flex;gap:12px;align-items:flex-start;text-align:left;width:100%;min-height:48px;padding:8px 12px;border:1px solid var(--line-2);border-radius:var(--r-field);background:var(--surface);transition:background var(--t),border-color var(--t)}
+.chk:hover{border-color:var(--ink)}
+.chk .box{width:22px;height:22px;border-radius:6px;border:2px solid var(--line-2);display:grid;place-items:center;color:transparent;flex:none;margin-top:1px;transition:background var(--t),border-color var(--t)}
+.chk .box svg{width:14px;height:14px}
+.chk[aria-checked="true"]{border-color:var(--blue);background:var(--blue-soft)}
+.chk[aria-checked="true"] .box{background:var(--blue);border-color:var(--blue);color:#fff}
+.chk b{display:block;font-size:15px;font-weight:600}
+.chk small{font-size:13px;color:var(--ink-2)}
+.chips-o{display:flex;flex-wrap:wrap;gap:6px}
+.chips-o .chk{width:auto;min-height:40px;align-items:center}
+.rcp-send{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center}
+@media (max-width:640px){.seg.jt{flex-wrap:nowrap;width:100%;overflow-x:auto;scrollbar-width:none}.seg.jt::-webkit-scrollbar{display:none}.seg.jt button{white-space:nowrap;flex:none}.cal{gap:8px}.calnav{width:40px;height:40px}.calday{width:62px}}
+@media (max-width:520px){.ag-row{grid-template-columns:48px minmax(0,1fr) auto}.ag-row.free{margin-inline:-8px;padding-inline:8px}}
+/* Paciente: ferramentas, WhatsApp interativo, responsável */
+.ptools{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 12px}
+.ptools .seg button{padding:0 12px;font-size:13px}
+.aa{min-height:40px;padding:0 14px;border:1px solid var(--line-2);border-radius:999px;background:var(--surface);font-size:14px;font-weight:600;display:inline-flex;align-items:center;gap:8px;transition:background var(--t),color var(--t)}
+.aa span{font-family:var(--serif);font-size:19px;line-height:1}
+.aa:hover{border-color:var(--ink)}
+.aa[aria-pressed="true"]{background:var(--ink);color:#fff;border-color:var(--ink)}
+body.aa-on .patient,body.aa-on .sheet{zoom:1.18}
+.qr{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;margin-top:12px}
+.qr button,.qr span{min-height:44px;border:1px solid var(--line-2);border-radius:var(--r-field);font-size:16px;font-weight:600;color:var(--blue);background:var(--surface);display:grid;place-items:center;text-align:center;padding:4px 8px;line-height:1.25;transition:background var(--t),border-color var(--t)}
+.qr button:hover{border-color:var(--blue);background:var(--blue-soft)}
+.qr.static span{font-size:13px;min-height:34px}
+.bubble.me{justify-self:end;background:#DDF3E5;border-color:#C2E6CF;border-radius:14px 4px 14px 14px}
+.switch{display:flex;align-items:center;gap:12px;min-height:44px;font-size:16px;text-align:left}
+.switch .knob{width:44px;height:26px;border-radius:999px;background:var(--line-2);position:relative;flex:none;transition:background var(--t)}
+.switch .knob::after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:transform var(--t)}
+.switch[aria-checked="true"] .knob{background:var(--green)}
+.switch[aria-checked="true"] .knob::after{transform:translateX(18px)}
+.muted{font-size:14px;color:var(--ink-2)}
+
+/* Joana: abas, registro do dia */
+.jt{flex-wrap:wrap}
+.tally{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:0 16px;margin-top:28px;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.tally div{padding:16px 0}
+.tally b{display:block;font-family:var(--serif);font-size:40px;font-weight:500;line-height:1.1;font-variant-numeric:tabular-nums}
+.tally span{font-size:14px;color:var(--ink-2)}
+.tally .good b{color:var(--green-ink)}
+.team .rule{margin-top:20px}
+.reg{margin-top:20px;border-top:1px solid var(--line)}
+.reg-row{display:grid;grid-template-columns:56px minmax(140px,200px) minmax(0,1fr);gap:8px 20px;padding:16px 0;border-bottom:1px solid var(--line);align-items:start}
+.reg-h{font-weight:600;font-variant-numeric:tabular-nums;line-height:40px}
+.reg-who b{display:block;line-height:24px;padding-top:8px}
+.reg-who span{font-size:14px;color:var(--ink-2)}
+.reg-st{display:grid;gap:10px}
+.st{display:flex;flex-wrap:wrap;gap:6px}
+.st button{min-height:40px;padding:0 12px;border:1px solid var(--line-2);border-radius:999px;font-size:14px;font-weight:500;background:var(--surface);transition:background var(--t),border-color var(--t)}
+.st button:hover{border-color:var(--ink)}
+.st .st-veio[aria-pressed="true"]{background:var(--green-soft);border-color:var(--green);color:var(--green-ink);font-weight:600}
+.st .st-menos[aria-pressed="true"]{background:var(--amber-soft);border-color:var(--amber);color:var(--amber);font-weight:600}
+.st .st-mais[aria-pressed="true"]{background:var(--blue-soft);border-color:var(--blue);color:var(--blue);font-weight:600}
+.st .st-faltou[aria-pressed="true"]{background:var(--red-soft);border-color:var(--red);color:var(--red);font-weight:600}
+.reuse{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;font-size:15px}
+.mini-seg{display:inline-flex;gap:6px}
+.mini-seg button{min-height:36px;min-width:56px;padding:0 12px;border:1px solid var(--line-2);border-radius:var(--r-field);font-size:14px;font-weight:600;background:var(--surface)}
+.mini-seg button[aria-pressed="true"]{background:var(--ink);color:#fff;border-color:var(--ink)}
+.reuse-auto{display:flex;gap:8px;align-items:center;font-size:15px;color:var(--green-ink);font-weight:500}
+.reuse-auto svg{flex:none}
+.reg-save{margin-top:24px;display:flex;flex-wrap:wrap;align-items:center;gap:12px}
+
+/* Joana: mensagens */
+.tpls{display:grid;gap:16px}
+.tpl{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-card);padding:20px;display:grid;gap:14px}
+.tpl-top{display:grid;grid-template-columns:32px minmax(0,1fr) auto;gap:4px 12px;align-items:start}
+.tpl-n{width:32px;height:32px;border-radius:50%;background:var(--ink);color:#fff;display:grid;place-items:center;font-weight:600;font-size:14px}
+.tpl h3{font-size:17px;font-weight:600;line-height:1.3;padding-top:4px}
+.tpl p{font-size:14px;color:var(--ink-2);margin-top:2px}
+.tpl p b{color:var(--ink);font-weight:600}
+.tpl-st{font-size:13px;font-weight:600;color:var(--green-ink);background:var(--green-soft);padding:3px 10px;border-radius:999px;white-space:nowrap}
+.bubble.tpl-b{font-size:15px;max-width:100%;background:var(--chat)}
+
+/* Ricardo: simulador e em breve */
+.sim,.soon{margin-top:32px;padding-top:24px;border-top:1px solid var(--line)}
+.sim-head h2{font-family:var(--serif);font-size:28px;font-weight:500;line-height:1.2}
+.sim-head p{margin-top:4px;font-size:15px;color:var(--ink-2);max-width:760px}
+.sim-grid{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:40px;margin-top:20px;align-items:start}
+.sls{display:grid;gap:22px}
+.sl-top{display:flex;justify-content:space-between;gap:12px;align-items:baseline}
+.sl-top label{font-size:16px;font-weight:500}
+.sl-top output{font-size:18px;font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
+.sl input{width:100%;height:32px;accent-color:var(--blue);margin:4px 0 0}
+.sl-src{font-size:13px;color:var(--ink-2)}
+.sim-out{display:grid;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-card);overflow:hidden}
+.sim-out div{padding:16px 20px;border-bottom:1px solid var(--line)}
+.sim-out div:last-child{border-bottom:0}
+.sim-out span{display:block;font-size:14px;color:var(--ink-2)}
+.sim-out b{font-family:var(--serif);font-size:34px;font-weight:500;line-height:1.15;font-variant-numeric:tabular-nums}
+.sim-out .pay{background:var(--blue-soft)}
+.sim-out .pay b{color:var(--blue)}
+.soon-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-top:20px}
+.soon-card{background:var(--surface);border:1px dashed var(--line-2);border-radius:var(--r-card);padding:20px;display:grid;gap:10px;align-content:start}
+.tag-i{justify-self:start;font-size:12px;font-weight:600;letter-spacing:.04em;color:var(--amber);background:var(--amber-soft);padding:2px 8px;border-radius:999px}
+.soon-card h3{font-size:18px;font-weight:600}
+.soon-say{font-size:15px;color:var(--ink-2)}
+.soon-big{font-family:var(--serif);font-size:56px;font-weight:500;line-height:1}
+.bars-h{display:grid;gap:12px;margin-top:4px}
+.bars-h li{display:grid;grid-template-columns:96px minmax(0,1fr) auto;gap:2px 12px;align-items:center;font-size:14px}
+.bars-h small{grid-column:2/4;font-size:13px;color:var(--ink-2)}
+.bh{height:10px;background:var(--bg);border-radius:999px;overflow:hidden}
+.bh i{display:block;height:100%;background:var(--blue);border-radius:999px}
+.bars-h b{font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
+
+@media (max-width:960px){.sim-grid,.soon-grid{grid-template-columns:minmax(0,1fr)}.tally{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:720px){.reg-row{grid-template-columns:48px minmax(0,1fr)}.reg-st{grid-column:1/-1}}
+@media (max-width:520px){.tpl-top{grid-template-columns:32px minmax(0,1fr)}.tpl-st{grid-column:2;justify-self:start}.bars-h li{grid-template-columns:80px minmax(0,1fr)}.bars-h b{grid-column:2}.bars-h small{grid-column:2}}
+
+/* v7: abas no topo, campos, vídeo, pacientes, lista de espera */
+.top:has(.jt){flex-direction:column-reverse;align-items:stretch;gap:20px}
+.top .jt{align-self:flex-start;max-width:100%}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.center{text-align:center}
+.h3s{font-size:15px;font-weight:600}
+.urg-list{display:grid;gap:12px}
+.task>div:first-child{flex:1 1 220px;min-width:0}
+.task .two{display:flex;flex-wrap:wrap;gap:8px}
+.ag-row.open{background:var(--amber-soft);margin-inline:-12px;padding-inline:12px}
+.ag-row.open .ag-w b{color:var(--amber)}
+.conv-note{font-size:13px;font-weight:600;color:var(--blue);background:var(--blue-soft);padding:2px 10px;border-radius:999px}
+.seg .cnt{font-size:12px;opacity:.7;margin-left:2px;font-variant-numeric:tabular-nums}
+.ta{width:100%;padding:12px 14px;border:1px solid var(--line-2);border-radius:var(--r-field);font:inherit;font-size:16px;line-height:1.45;background:var(--surface);color:var(--ink);resize:vertical}
+.ta:focus{outline:2px solid var(--blue);outline-offset:1px}
+.fld-row{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:4px 12px}
+.fld small{font-weight:400;color:var(--ink-2)}
+.vlist{display:grid;gap:8px}
+.vopt{display:grid;grid-template-columns:76px minmax(0,1fr);gap:12px;align-items:center;text-align:left;padding:8px;border:1px solid var(--line-2);border-radius:var(--r-field);background:var(--surface);transition:background var(--t),border-color var(--t)}
+.vopt:hover{border-color:var(--ink)}
+.vopt[aria-checked="true"]{border-color:var(--blue);background:var(--blue-soft)}
+.vopt b{display:block;font-size:15px;font-weight:600;line-height:1.3}
+.vopt small{font-size:13px;color:var(--ink-2)}
+.vthumb{display:grid;place-items:center;aspect-ratio:16/10;border-radius:8px;background:linear-gradient(135deg,#21324D,#1B5FE0);color:#fff}
+.bubble.vid{display:grid;gap:6px;max-width:300px}
+.bubble.vid .vthumb{width:100%;aspect-ratio:16/9}
+.bubble.vid b{font-size:16px;line-height:1.3}
+.bubble.vid small{font-size:13px;color:var(--ink-2)}
+.bubble.vid p{font-size:16px}
+.toolbar{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-top:24px}
+.toolbar .inp{flex:1 1 200px;max-width:340px;min-height:44px;width:auto}
+.pts{margin-top:16px;border-top:1px solid var(--line)}
+.pt{display:grid;grid-template-columns:minmax(150px,1.3fr) minmax(130px,1fr) minmax(110px,.9fr) minmax(110px,.8fr) minmax(140px,1.1fr) auto;gap:6px 16px;align-items:center;padding:14px 0;border-bottom:1px solid var(--line)}
+.pt[hidden]{display:none}
+.pt b{display:block;font-weight:600}
+.pt small{display:block;font-size:13px;color:var(--ink-2)}
+.pt.pt-h{font-size:12px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-2);padding:10px 0}
+.badge.conv{background:var(--blue-soft);color:var(--blue)}
+.badge.part{background:var(--line);color:var(--ink)}
+.wl{border-top:1px solid var(--line)}
+.wl-row{display:grid;grid-template-columns:56px minmax(0,1fr) auto;gap:12px;align-items:center;min-height:56px;padding:8px 0;border-bottom:1px solid var(--line)}
+.wl-names{display:flex;flex-wrap:wrap;gap:6px}
+.wl-names span{font-size:14px;font-weight:500;padding:4px 10px;border-radius:999px;background:var(--surface);border:1px solid var(--line-2)}
+.wl-names span i{font-style:normal;color:var(--ink-2);margin-right:5px;font-weight:400}
+.wl-names em{font-style:normal;font-size:14px;color:var(--ink-2)}
+.wl-c{font-size:14px;color:var(--ink-2);white-space:nowrap}
+.wp{display:grid;gap:4px;padding:14px 0;border-bottom:1px solid var(--line);justify-items:start}
+.wp:first-child{border-top:1px solid var(--line)}
+.wp-top{display:flex;justify-content:space-between;align-items:center;gap:8px;width:100%}
+@media (max-width:900px){
+  .pt{grid-template-columns:minmax(0,1fr) auto;gap:4px 12px}
+  .pt>*{grid-column:1}
+  .pt>.pt-e{grid-column:2;grid-row:1}
+  .pt.pt-h{display:none}
+}
+@media (max-width:520px){.ag-row.open{margin-inline:-8px;padding-inline:8px}.wl-row{grid-template-columns:44px minmax(0,1fr)}.wl-c{grid-column:2}}
+
+@media (min-width:640px){.veil{align-items:center}.sheet{border-radius:var(--r-card)}}
+@media (max-width:960px){.queue-grid,.charts{grid-template-columns:minmax(0,1fr)}.hero{grid-template-columns:minmax(0,1fr)}}
+@media (max-width:520px){
+  .title h1{font-size:36px}.hello h1{font-size:36px}
+  .demo-side{margin-left:0}
+  .demo-who{flex-wrap:wrap;width:100%}.demo-who .seg{max-width:100%}.seg button{padding:0 10px;font-size:13px}
+  .demo{position:static}
+  .urgent{padding:18px}.urgent .btn{width:100%}
+  .xs,.bars{gap:3px}.bars,.xs{padding-left:0}.gridline span{display:none}
+  .col em{font-size:11px}.col.peak em{font-size:13px}
+}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+</style>
+
+<div id="app"></div>
+<div id="live" aria-live="polite"></div>
+
+<script>
+const CHECK='<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8.5l3.2 3L13 4.5"/></svg>';
+const CLOSE='<svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 4l10 10M14 4L4 14"/></svg>';
+const PLAY='<svg width="30" height="30" viewBox="0 0 30 30" aria-hidden="true"><circle cx="15" cy="15" r="14" fill="rgba(255,255,255,.16)" stroke="#fff" stroke-width="1.5"/><path d="M12.5 10v10l8-5z" fill="#fff"/></svg>';
+const DAYS=[
+  {id:'qua',w:'Qua',n:11,name:'quarta, dia 11'},
+  {id:'qui',w:'Qui',n:12,name:'quinta, dia 12'},
+  {id:'sex',w:'Sex',n:13,name:'sexta, dia 13'},
+  {id:'seg',w:'Seg',n:16,name:'segunda, dia 16'},
+  {id:'ter',w:'Ter',n:17,name:'terça, dia 17'},
+  {id:'sab',w:'Sáb',n:14,name:'sábado, dia 14'}
+].sort((a,b)=>a.n-b.n);
+const SESSIONS=[7,9,12,15,18,44,38,35,36,38];
+const HOURS=[['7h às 9h',33],['9h às 12h',18],['13h às 17h',17],['17h às 20h',32]];
+const FULL={Seg:'Segunda',Ter:'Terça',Qua:'Quarta',Qui:'Quinta',Sex:'Sexta','Sáb':'Sábado'};
+const CAL=[[4,'Qua'],[5,'Qui'],[6,'Sex'],[7,'Sáb'],[9,'Seg'],[10,'Ter'],[11,'Qua'],[12,'Qui'],[13,'Sex'],[14,'Sáb'],[16,'Seg'],[17,'Ter']].map(([n,w])=>({n,w}));
+const TODAY=9;
+const FREE={4:[],5:[],6:[],7:[],9:['16h','17h'],10:['8h','15h'],11:['9h','15h'],12:['14h'],13:[],14:[],16:['9h','10h','15h'],17:['8h']};
+const HRS=['7h','8h','9h','10h','11h','14h','15h','16h','17h','18h','19h'];
+const POOL=['Lúcia','Sandra','Seu Jorge','Davi','Rafaela','Otávio','Júlia','Seu Amaro','Renata','Caio','Dona Nina','Vítor'];
+const PAST={
+  4:[['7h','Marcos','1ª sessão','veio'],['9h','Seu Ivo','1ª sessão','veio'],['11h','Rita','1ª sessão','veio'],['15h','Tiago','4ª sessão','menos','Sim, Seu Ivo'],['18h','Carla','3ª sessão','faltou','Não, cadeira vazia']],
+  5:[['8h','Lúcia','2ª sessão','veio'],['10h','Dona Célia','4ª sessão','veio'],['14h','Seu Edson','6ª sessão','mais','Sim, Marcos'],['17h','Seu Antônio','5ª sessão','faltou','Não, cadeira vazia']],
+  6:[['7h','Seu Ivo','2ª sessão','veio'],['9h','Davi','3ª sessão','faltou','Não, cadeira vazia'],['15h','Rita','2ª sessão','veio'],['18h','Tiago','5ª sessão','veio']],
+  7:[['8h','Marcos','2ª sessão','veio'],['9h','Carla','4ª sessão','menos','Sim, Bruna'],['10h','Seu Edson','7ª sessão','veio']]
+};
+const REG=[
+  {id:'ivo',h:'7h',n:'Seu Ivo',s:'3ª sessão',f:'Paulo'},
+  {id:'carla',h:'11h',n:'Carla',s:'4ª sessão',f:'Paulo',key:'9|11h'},
+  {id:'edson',h:'14h',n:'Seu Edson',s:'7ª sessão',f:'Marina'},
+  {id:'rita',h:'15h',n:'Rita',s:'2ª sessão',f:'Paulo'},
+  {id:'tiago',h:'18h',n:'Tiago',s:'5ª sessão',f:'Marina'}
+];
+const ST=[['veio','Compareceu'],['menos','Cancelou com menos de 24h'],['mais','Cancelou com 24h ou mais'],['faltou','Faltou']];
+const ST_LAB={veio:'Compareceu',menos:'Cancelou com menos de 24h',mais:'Cancelou com 24h ou mais',faltou:'Faltou'};
+const TPL=[
+  {k:'pedido',conv:true,n:'Pedido enviado ao plano',q:'depois da 2ª sessão (convênios A e B) ou da 3ª (demais)',to:'pacientes de convênio em renovação',txt:'Dona Célia, já pedimos ao plano as 5 sessões que faltam. Seu horário de terça e quinta, às 10h, fica guardado até a 10ª sessão. Você não precisa fazer nada: avisamos aqui assim que o plano responder.'},
+  {k:'porque',n:'Por que ir até a 10ª',q:'depois da 4ª sessão',to:'todos os pacientes',txt:'Dona Célia, que bom que a dor está diminuindo: é sinal de que o tratamento está funcionando. Só que a dor costuma melhorar antes de o corpo terminar de se recuperar. As sessões 6 a 10 são as que deixam o músculo forte de novo e diminuem a chance de a dor voltar. O Paulo planejou as 10 pensando nisso, e seu horário de terça e quinta, às 10h, continua guardado para você.'},
+  {k:'atraso',conv:true,n:'Se o plano atrasar',q:'quando o plano passa do prazo de resposta',to:'pacientes de convênio esperando o plano',txt:'O plano ainda não respondeu, mas seu horário continua guardado. Não precisa ligar nem ir à clínica: avisamos aqui assim que liberar.'},
+  {k:'vespera',n:'Véspera da sessão',q:'na véspera, às 8h',to:'todos com sessão no dia seguinte',txt:'Bom dia, Dona Célia! Amanhã é sua 5ª sessão, terça, às 10h, com o Paulo. Podemos confirmar?'}
+];
+const PAYS=[['part','Particular'],['a','Convênio A'],['b','Convênio B'],['c','Convênio C']];
+const payL=k=>(PAYS.find(p=>p[0]===k)||[,'A definir'])[1];
+const PATS0=[
+  {id:'celia',name:'Dona Célia',tel:'(81) 9••••-1204',pay:'a',sess:4,fisio:'Paulo',hor:'Ter e Qui, 10h',resp:'Fábio (filho)'},
+  {id:'rita',name:'Rita',tel:'(81) 9••••-3381',pay:'b',sess:2,fisio:'Paulo',hor:'Seg e Qua, 15h',resp:''},
+  {id:'antonio',name:'Seu Antônio',tel:'(81) 9••••-7720',pay:'b',sess:5,fisio:'Paulo',hor:'Ter e Qui, 14h',resp:''},
+  {id:'edson',name:'Seu Edson',tel:'(81) 9••••-5512',pay:'c',sess:7,fisio:'Marina',hor:'Seg e Qua, 14h',resp:''},
+  {id:'carla',name:'Carla',tel:'(81) 9••••-2290',pay:'part',sess:4,fisio:'Paulo',hor:'Seg e Qua, 11h',resp:''},
+  {id:'ivo',name:'Seu Ivo',tel:'(81) 9••••-6643',pay:'part',sess:3,fisio:'Paulo',hor:'Seg e Qua, 7h',resp:'Neide (esposa)'},
+  {id:'tiago',name:'Tiago',tel:'(81) 9••••-4407',pay:'a',sess:5,fisio:'Marina',hor:'Seg e Qua, 18h',resp:''},
+  {id:'marcos',name:'Marcos',tel:'(81) 9••••-8815',pay:'part',sess:3,fisio:'Marina',hor:'Ter e Qui, 19h',resp:''},
+  {id:'bruna',name:'Bruna',tel:'(81) 9••••-9036',pay:'part',sess:0,fisio:'—',hor:'A definir',resp:''},
+  {id:'heitor',name:'Heitor',tel:'(81) 9••••-1178',pay:'c',sess:0,fisio:'—',hor:'A definir',resp:''},
+  {id:'paula',name:'Paula',tel:'(81) 9••••-3365',pay:'a',sess:0,fisio:'—',hor:'A definir',resp:''}
+];
+const WAIT0=[
+  {id:'ivo',hours:['10h','11h'],sat:false,since:'28 out',note:'Quer sair das 7h.',st:'esperando'},
+  {id:'marcos',hours:['18h','19h'],sat:true,since:'30 out',note:'Viria no sábado.',st:'esperando'},
+  {id:'bruna',hours:['14h','15h','16h','17h'],sat:false,since:'2 nov',note:'Vai começar.',st:'esperando'},
+  {id:'heitor',hours:['7h','8h','9h','10h'],sat:false,since:'3 nov',note:'Vai começar.',st:'esperando'},
+  {id:'paula',hours:['9h','10h','11h'],sat:false,since:'4 nov',note:'Vai começar.',st:'esperando'}
+];
+const VIDEOS=[
+  {id:'ponte',t:'Ponte de glúteo',d:'3 min',a:'lombar e quadril'},
+  {id:'coxa',t:'Alongamento da parte de trás da coxa',d:'2 min',a:'lombar e joelho'},
+  {id:'ombro',t:'Mobilidade de ombro com bastão',d:'4 min',a:'ombro'},
+  {id:'sentado',t:'Fortalecimento de coxa, sentado',d:'3 min',a:'joelho'}
+];
+const WHO=['ivo','marcos','celia','novo'];
+const CHN=[['WhatsApp','WhatsApp'],['Telefone','Telefone'],['Balcão','No balcão']];
+const TAGCH={WhatsApp:'pedido pelo WhatsApp',Telefone:'pedido por telefone','Balcão':'marcado no balcão'};
+const BASE={total:11550,chairs:150,budget:20000};
+const clone=o=>JSON.parse(JSON.stringify(o));
+const fresh=()=>({role:'paciente',screen:'whatsapp',who:'celia',big:false,vespera:null,released:false,busy:false,
+  sheet:false,day:null,time:null,asked:null,askedBy:null,askedKey:null,moved:null,extra:null,extraBy:null,extraKey:null,extraDone:false,
+  mode:'hoje',panel:null,jtab:'fila',open:['rita','edson'],done:[],
+  vagas:{'9|11h':{n:9,h:'11h',origem:'Carla cancelou com menos de 24h',quem:'carla',st:'aberta',to:null,skip:[]}},freed:{},
+  reg:{carla:'menos'},reuse:{},regSaved:false,rd:9,ad:9,booked:{},
+  sel:{},more:{},sentTo:{porque:['tiago']},cnt:{pedido:2,porque:3,atraso:0,vespera:12},book:null,
+  msgs:[{h:'8:00',to:'12 pacientes',t:'Véspera da sessão'},{h:'7:30',to:'Tiago',t:'Por que ir até a 10ª'}],replies:[],chat:[],
+  rita:'novo',rep:false,repEv:'',repPlan:'',repN:5,vid:null,vsent:[],
+  pats:clone(PATS0),pf:'todos',q:'',form:null,wait:clone(WAIT0),wform:null,
+  fCopy:true,bPay:null,bDay:null,bTime:null,bAsked:null,bKey:null,bOk:false,
+  sim:{renov:50,late:20,ori:2.5},toast:null,total:11550,chairs:150});
+let s=fresh(),toastTimer,focusKey=null;
+const app=document.getElementById('app'),live=document.getElementById('live');
+const brl=n=>'R$ '+Math.round(n).toLocaleString('pt-BR');
+const fmt=v=>String(v).replace('.',',');
+const fmt1=n=>n.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1});
+const esc=v=>String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+const log=(to,t)=>s.msgs.unshift({h:'agora',to,t});
+const pget=id=>s.pats.find(x=>x.id===id);
+const pname=id=>{const p=pget(id);return p?p.name:id};
+
+/* Premissas do simulador: as mesmas da tabela "Quanto a solução pode render" */
+function calc(){
+  const r=20.5*s.sim.renov/100,l=150*s.sim.late/100*.6,o=3*s.sim.ori;
+  const g=r*55+(l+o)*77;
+  return {f:r+l+o,g,months:BASE.budget/g};
+}
+const freeFor=n=>[...(FREE[n]||[]),...Object.keys(s.freed).filter(k=>+k.split('|')[0]===n).map(k=>k.split('|')[1])]
+  .filter(h=>!s.booked[n+'|'+h]).sort((a,b)=>HRS.indexOf(a)-HRS.indexOf(b));
+const dayLabel=n=>{const d=CAL.find(x=>x.n===n);return `${FULL[d.w]}, dia ${n}`};
+const dayW=n=>CAL.find(x=>x.n===n).w;
+function whoAt(n,h){
+  const k=n+'|'+h,b=s.booked[k];if(b)return {name:b.name,tag:b.tag,pend:b.pend};
+  const v=s.vagas[k];
+  if(v&&v.st==='oferta')return {name:`Em oferta para ${pname(v.to)}`,tag:v.origem,pend:true};
+  if(v&&v.st==='aberta')return {name:'Vaga aberta',tag:v.origem,open:true};
+  if(n===TODAY){const r=REG.find(x=>x.h===h);if(r)return {name:r.n}}
+  const w=dayW(n);
+  if(h==='10h'&&(w==='Ter'||w==='Qui'))return {name:'Dona Célia'};
+  return {name:POOL[(HRS.indexOf(h)*5+n)%POOL.length]};
+}
+function fitsFor(k){
+  const v=s.vagas[k],sat=dayW(v.n)==='Sáb';
+  return s.wait.filter(e=>e.st==='esperando'&&e.hours.includes(v.h)&&!v.skip.includes(e.id)&&(!sat||e.sat));
+}
+const bookReady=()=>!!(s.book&&s.book.who&&(s.book.who!=='novo'||(s.book.name.trim().length>1&&s.book.pay)));
+const repOk=()=>s.repEv.trim().length>=20&&s.repPlan.trim().length>=10;
+const formOk=()=>!!(s.form&&s.form.name.trim().length>1&&s.form.tel.trim().length>=8&&s.form.pay);
+const wformOk=()=>!!(s.wform&&s.wform.id&&s.wform.hours.length);
+function reusedCount(){return REG.filter(r=>{const v=s.reg[r.id];if(!v||v==='veio')return false;const vg=r.key&&s.vagas[r.key];return (vg&&vg.st==='preenchida')||s.reuse[r.id]==='sim'}).length}
+const vagasBy=st=>Object.entries(s.vagas).filter(([k,v])=>v.st===st);
+
+function hint(){
+  if(s.role==='paciente'){
+    if(s.who==='bruna')return s.bOk?'Primeira sessão confirmada. As 10 sessões ficam no mesmo horário.':s.bAsked?'<strong>Próximo passo:</strong> veja como Joana e confirme a 1ª sessão da Bruna.':'<strong>Paciente novo:</strong> escolha como vai pagar, o dia e o horário.';
+    if(s.who==='filho')return 'O filho acompanha a trilha da mãe pelo próprio link. Ele não vê dados clínicos.';
+    if(s.screen==='whatsapp')return s.vespera?'<strong>Próximo passo:</strong> toque em Acompanhar minha renovação.':'<strong>Comece aqui:</strong> responda ao lembrete ou toque em Acompanhar minha renovação.';
+    if(s.asked&&!s.moved)return '<strong>Remarcação pedida.</strong> Veja como Joana: o horário antigo já aparece como vaga aberta.';
+    return s.released?'<strong>Próximo passo:</strong> veja como Joana para abrir a Fila do dia.':'<strong>Próximo passo:</strong> clique em Simular resposta do convênio e veja esta tela mudar.';
+  }
+  if(s.role==='joana'){
+    const tabs={agenda:'<strong>Agenda:</strong> veja os horários livres e clique em Marcar para quem pediu pelo WhatsApp.',
+      espera:'<strong>Lista de espera:</strong> cada horário mostra quem aceitou esperar, em ordem de chegada.',
+      pacientes:'<strong>Pacientes:</strong> filtre por convênio ou particular, edite ou cadastre alguém.',
+      msgs:'<strong>Mensagens:</strong> confira quem recebe cada texto e clique em Enviar.'};
+    if(tabs[s.jtab])return tabs[s.jtab];
+    if(s.jtab==='registro')return s.rd!==TODAY?'Use as setas ou os dias para ver o registro de outras datas.':s.regSaved?'Registro salvo. Ricardo já vê as vagas reaproveitadas.':'<strong>Registro do dia:</strong> marque o que aconteceu em cada horário e salve.';
+    if(vagasBy('aberta').length)return '<strong>Vaga aberta:</strong> clique em Oferecer à lista de espera.';
+    if(vagasBy('oferta').length)return '<strong>Oferta enviada.</strong> Quando a pessoa responder no WhatsApp, marque Aceitou ou Recusou.';
+    if(s.rita==='pronto'&&s.open.includes('rita'))return '<strong>O relatório da Rita chegou.</strong> Marque como enviado ao plano.';
+    if(s.rita==='novo')return '<strong>Próximo passo:</strong> clique em Pedir relatório (Rita) e veja como Fisioterapeuta.';
+    return '<strong>Próximo passo:</strong> veja as outras abas, ou veja como Ricardo.';
+  }
+  if(s.role==='paulo'){
+    if(s.rita==='pedido')return '<strong>Próximo passo:</strong> clique em Escrever relatório.';
+    if(s.rita==='pronto')return 'Relatório enviado. Volte para Joana e veja o pedido chegar pronto.';
+    return 'Clique em Enviar vídeo para mandar um exercício ao WhatsApp do paciente.';
+  }
+  return s.mode==='hoje'?'<strong>Próximo passo:</strong> alterne para Com a Trilha 10 e mexa nas premissas.':'Mexa nas premissas e veja o prazo para pagar os R$ 20 mil mudar.';
+}
+function demoBar(){
+  const roles=[['paciente','Paciente'],['joana','Joana'],['paulo','Fisioterapeuta'],['ricardo','Ricardo']];
+  const sim=s.released?`<button class="ghost" disabled>${CHECK} Convênio respondeu</button>`:
+    s.busy?`<button class="ghost" disabled><span class="spin" aria-hidden="true"></span> Aguardando o convênio</button>`:
+    `<button class="ghost" data-a="simulate" data-k="simulate">Simular resposta do convênio</button>`;
+  return `<div class="demo"><div class="demo-row gutter">
+    <span class="demo-label">Modo demonstração</span>
+    <span class="demo-who">Ver como
+      <span class="seg" role="group" aria-label="Ver como">${roles.map(([k,l])=>`<button data-a="role" data-v="${k}" data-k="role-${k}" aria-pressed="${s.role===k}">${l}</button>`).join('')}</span>
+    </span>
+    <span class="demo-side">${sim}<button class="link" data-a="reset" data-k="reset">Reiniciar</button></span>
+  </div><div class="hint"><div class="gutter">${hint()}</div></div></div>`;
+}
+
+/* ---------- Paciente ---------- */
+function ptools(){
+  const ws=[['celia','Dona Célia'],['filho','Fábio, filho'],['bruna','Bruna, nova']];
+  return `<div class="ptools"><span class="seg" role="group" aria-label="Quem abre o link">${ws.map(([k,l])=>`<button data-a="who" data-v="${k}" data-k="who-${k}" aria-pressed="${s.who===k}">${l}</button>`).join('')}</span>
+    <button class="aa" data-a="big" data-k="big" aria-pressed="${s.big}"><span aria-hidden="true">Aa</span>Letra maior</button></div>`;
+}
+function chatExtra(){
+  return s.chat.map(c=>c.k==='video'
+    ?`<div class="bubble vid pop"><span class="vthumb">${PLAY}</span><b>${c.t}</b><small>Vídeo de ${c.d}, enviado pelo Paulo</small>${c.note?`<p>${esc(c.note)}</p>`:''}<time>agora</time></div>`
+    :`<div class="bubble pop">${c.txt}<time>agora</time></div>`).join('');
+}
+function whatsapp(){
+  const f=s.who==='filho';
+  const body=f?`<span class="day">Quinta, dia 5</span>
+      <div class="bubble">Fábio, a Dona Célia indicou você como responsável. Você recebe os mesmos avisos da trilha dela.<time>9:13</time></div>
+      <span class="day">Hoje</span>
+      <div class="bubble">Amanhã a Dona Célia tem a 5ª sessão, terça, às 10h, com o Paulo.<time>8:00</time></div>
+      ${s.vespera==='vou'?`<div class="bubble pop">A Dona Célia confirmou presença na sessão de amanhã.<time>agora</time></div>`:''}
+      ${s.released?`<div class="bubble pop">O plano liberou as sessões 6 a 10 da Dona Célia. A 6ª é quinta, às 10h, com o Paulo.<time>agora</time></div>`:''}
+      <button class="btn block" data-a="open" data-k="open">Acompanhar a trilha da Dona Célia</button>`
+    :`<span class="day">Quinta, dia 5</span>
+      <div class="bubble">Dona Célia, já pedimos ao plano as 5 sessões que faltam. Seu horário de terça e quinta, às 10h, fica guardado até a 10ª sessão.<time>9:12</time></div>
+      <span class="day">Hoje</span>
+      <div class="bubble">Bom dia, Dona Célia! Amanhã é sua 5ª sessão, terça, às 10h, com o Paulo. Podemos confirmar?<time>8:00</time>
+        ${s.vespera?'':`<div class="qr"><button data-a="vou" data-k="vou">Vou comparecer</button><button data-a="vremarcar" data-k="vremarcar">Preciso remarcar</button></div>`}</div>
+      ${s.vespera==='vou'?`<div class="bubble me">Vou comparecer<time>agora</time></div><div class="bubble pop">Combinado! Até amanhã, às 10h.<time>agora</time></div>`:''}
+      ${s.vespera==='remarcar'?`<div class="bubble me">Preciso remarcar<time>agora</time></div><div class="bubble">Sem problema. Escolha o novo dia no seu acompanhamento.<time>agora</time></div>`:''}
+      ${s.released?`<div class="bubble pop">Boa notícia: o plano liberou! Sua 6ª sessão é na quinta, às 10h, com o Paulo.<time>agora</time></div>`:''}
+      ${chatExtra()}
+      <button class="btn block" data-a="open" data-k="open">Acompanhar minha renovação</button>`;
+  return `<main class="patient gutter">${ptools()}
+    <section class="chat" aria-label="Simulação de conversa">
+      <div class="chat-head"><strong>Clínica Movimento</strong><span>${f?'Conversa do Fábio, responsável pela Dona Célia':'Simulação da conversa no WhatsApp'}</span></div>
+      <div class="chat-body">${body}</div>
+    </section>
+  </main>`;
+}
+function pending(){return !!((s.asked&&!s.moved)||(s.extra&&!s.extraDone))}
+function trackItems(){
+  const st=['Relatório feito','Pedido enviado ao plano','Plano analisando','Sessões liberadas','Horário confirmado'];
+  const wait=pending();
+  const cur=s.released?(wait?4:5):2;
+  return st.map((t,i)=>{const c=i<cur?'done':i===cur?'now':'';
+    const w=c==='now'&&i===4;
+    return `<li class="${c} ${w?'wait':''}" ${c==='now'?'aria-current="step"':''}><span class="mark">${c==='done'?CHECK:''}</span><span>${w?'Confirmando o novo horário':t}</span></li>`}).join('');
+}
+function nextLabel(){
+  if(s.asked&&!s.moved)return `5ª sessão: ${s.asked}, aguardando a recepção`;
+  if(s.moved)return `5ª sessão: ${s.moved}`;
+  return s.vespera==='vou'?'5ª sessão: terça, às 10h, presença confirmada':'5ª sessão: terça, às 10h';
+}
+function rastreio(){
+  const r=s.released,P=s.who==='filho';
+  const sua=P?'a 5ª sessão dela':'sua 5ª sessão';
+  const nodes=(a,b)=>{let h='';for(let n=a;n<=b;n++){const c=n<=4?'done':n===5?'next':r?'sure':'held';
+    const lab=n<=4?'concluída':n===5?'próxima':r?'confirmada':'reservada';
+    h+=`<div class="node ${c} ${r&&n>5?'pop':''}" role="img" aria-label="Sessão ${n}, ${lab}">${n}</div>`}return h};
+  const filhoCard=`<section class="card sec" aria-labelledby="t-resp"><h2 id="t-resp">Como responsável</h2>
+      <ul class="mini"><li><b>Você vê</b><span>Datas, horários e o andamento da renovação.</span></li><li><b>Você não vê</b><span>Relatórios e informações clínicas. Ficam com a clínica.</span></li></ul>
+      <button class="switch" role="switch" aria-checked="${s.fCopy}" data-a="fcopy" data-k="fcopy"><span class="knob" aria-hidden="true"></span>Receber os avisos dela no meu WhatsApp</button></section>`;
+  return `<main class="patient wide gutter">
+    ${ptools()}
+    <button class="back" data-a="whats" data-k="whats">Voltar para a conversa</button>
+    <div class="hello"><h1>${P?'Oi, Fábio':'Oi, Dona Célia'}</h1><p>${P?'Você acompanha a trilha da Dona Célia. O horário dela fica guardado até a 10ª sessão.':'Seu horário continua seu até a 10ª sessão.'}</p></div>
+    <div class="cols"><div class="col-a">
+    <section class="card promise ${r?'ok pop':''}">
+      <h2>${r?(P?'Tudo certo: a 6ª sessão dela está confirmada':'Tudo certo: sua 6ª sessão está confirmada'):(P?'O horário dela está guardado':'Seu horário está guardado')}</h2>
+      <p>${r?'Quinta, às 10h, com o Paulo':'Terça e quinta, às 10h, com o Paulo'}</p>
+    </section>
+    ${s.asked&&!s.moved?`<p class="notice" role="status">Pedimos à recepção para mudar ${sua} para ${s.asked}. O horário de terça, às 10h, foi liberado para quem está na lista de espera.</p>`:''}
+    ${s.moved?`<p class="notice ok" role="status">Pronto: ${sua} agora é ${s.moved}. Os outros horários continuam iguais.</p>`:''}
+    <section class="card sec" aria-labelledby="t-track">
+      <h2 id="t-track">${P?'A renovação dela':'Sua renovação'}</h2>
+      <ol class="track">${trackItems()}</ol>
+      ${pending()&&r?'<p class="track-note">Pedimos à recepção e estamos confirmando o novo horário. Avisamos pelo WhatsApp.</p>':r?'<p class="track-note ok">O plano liberou mais 5 sessões. Ninguém precisa fazer nada.</p>':'<p class="track-note">Isso pode levar até 10 dias úteis. Ninguém precisa fazer nada agora.</p>'}
+    </section></div><div class="col-b">
+    ${P?filhoCard:''}
+    <section class="card sec" aria-labelledby="t-trail">
+      <h2 id="t-trail">${P?'A trilha dela de 10 sessões':'Sua trilha de 10 sessões'}</h2>
+      <div class="trail-group"><span>Já liberadas pelo plano. ${nextLabel()}</span><div class="trail">${nodes(1,5)}</div></div>
+      <div class="gate ${r?'ok':''}">${r?'Renovação liberada':'Renovação em andamento'}</div>
+      <div class="trail-group"><span>${r?'Confirmadas no mesmo horário':'Reservadas no mesmo horário'}</span><div class="trail">${nodes(6,10)}</div></div>
+      ${s.extra?`<div class="trail-group"><span>Sessão a mais: ${s.extra}${s.extraDone?', confirmada':', aguardando a recepção'}</span><div class="trail"><div class="node ${s.extraDone?'sure pop':'held'}" role="img" aria-label="Sessão 11, ${s.extraDone?'confirmada':'aguardando confirmação'}">11</div></div></div>`:''}
+      <div class="legend">
+        <span><i style="background:var(--blue)"></i>Concluída</span>
+        <span><i style="background:var(--surface);border:2px solid var(--ink)"></i>Próxima</span>
+        ${r?'<span><i style="background:var(--green-soft);border:2px solid var(--green)"></i>Confirmada</span>':'<span><i style="background:var(--surface);border:2px dashed var(--line-2)"></i>Reservada</span>'}
+      </div>
+    </section>
+    ${s.extra&&!s.extraDone?`<p class="notice" role="status">Pedimos à recepção uma sessão a mais para ${s.extra}. Avisamos pelo WhatsApp quando estiver confirmada.</p>`:''}
+    ${s.extraDone?`<p class="notice ok" role="status">Pronto: a sessão a mais está confirmada para ${s.extra}.</p>`:''}
+    <p class="why">${P?'A dor costuma melhorar antes de o corpo terminar de se recuperar. As sessões 6 a 10 firmam esse ganho. Ajude a Dona Célia a ir até a 10ª.':'A dor costuma melhorar antes de o corpo terminar de se recuperar. As sessões 6 a 10 deixam o músculo forte de novo e diminuem a chance de a dor voltar.'}</p>
+    <div class="actions2"><button class="btn line block" data-a="extra" data-k="extra">Pedir uma sessão a mais</button>
+    <button class="btn line block" data-a="sheet" data-k="sheet">${P?'Remarcar a 5ª sessão dela':'Preciso remarcar'}</button></div>
+    </div></div>
+  </main>`;
+}
+function picker(dk,tk,ad,at){
+  const d=DAYS.find(x=>x.id===s[dk]);
+  return `<div class="days">${DAYS.map(x=>{const n=freeFor(x.n).length;
+      return `<button class="daycard" data-a="${ad}" data-v="${x.id}" data-k="${ad}-${x.id}" aria-pressed="${s[dk]===x.id}" ${n?'':'disabled'}><span>${x.w}</span><b>${x.n}</b><small>${n?`<i></i>${n} ${n>1?'horários':'horário'}`:'Sem horário'}</small></button>`}).join('')}</div>
+    ${d?`<div class="times" role="group" aria-label="Horários de ${d.name}">${freeFor(d.n).map(t=>`<button data-a="${at}" data-v="${t}" data-k="${at}-${t}" aria-pressed="${s[tk]===t}">${t}</button>`).join('')}</div>`:''}`;
+}
+function sheet(){
+  if(!s.sheet)return'';
+  const ex=s.sheet==='extra',P=s.who==='filho';
+  return `<div class="veil" data-a="closeSheet" data-self="1"><div class="sheet" role="dialog" aria-modal="true" aria-labelledby="t-sheet">
+    <div class="panel-top"><h2 id="t-sheet">${ex?'Pedir uma sessão a mais':P?'Remarcar a 5ª sessão da Dona Célia':'Remarcar a 5ª sessão'}</h2><button class="close" data-a="closeSheet" data-k="closeSheet" aria-label="Fechar">${CLOSE}</button></div>
+    <p class="sheet-sub">${ex?'Escolha um dia. A recepção confirma e avisa pelo WhatsApp.':'Escolha um dia. Só esta sessão muda, e o horário de terça, às 10h, vai para quem está na lista de espera.'}</p>
+    ${picker('day','time','day','time')}
+    <button class="btn block" data-a="ask" data-k="ask" ${s.day&&s.time?'':'disabled'}>${ex?'Pedir esta sessão':'Pedir esta mudança'}</button>
+  </div></div>`;
+}
+function bruna(){
+  const pay=PAYS.find(p=>p[0]===s.bPay),slot=s.bAsked,ok=s.bOk;
+  let inner;
+  if(!slot){
+    inner=`<div class="cols"><div class="col-a">
+      <section class="card sec" aria-labelledby="t-pay"><h2 id="t-pay">1. Como vai pagar?</h2>
+        <div class="times" role="group" aria-label="Forma de pagamento">${PAYS.map(([k,l])=>`<button data-a="bpay" data-v="${k}" data-k="bpay-${k}" aria-pressed="${s.bPay===k}">${l}</button>`).join('')}</div>
+        ${s.bPay&&s.bPay!=='part'?'<p class="track-note">Traga o pedido médico. A recepção pede a autorização ao plano antes da 1ª sessão.</p>':''}</section>
+      <section class="card sec" aria-labelledby="t-when"><h2 id="t-when">2. Qual dia e horário?</h2>${picker('bDay','bTime','bday','btime')}</section>
+    </div><div class="col-b">
+      <section class="card sec" aria-labelledby="t-how"><h2 id="t-how">Como funciona</h2>
+        <ul class="mini"><li><b>Mesmo horário até o fim</b><span>Ao confirmar, guardamos este horário para as 10 sessões do tratamento.</span></li><li><b>Tudo pelo WhatsApp</b><span>Sem aplicativo e sem senha. A confirmação chega no seu número.</span></li></ul></section>
+      <button class="btn block" data-a="bask" data-k="bask" ${s.bPay&&s.bDay&&s.bTime?'':'disabled'}>Pedir minha primeira sessão</button>
+    </div></div>`;
+  }else{
+    let nodes='';for(let n=1;n<=10;n++){const c=n===1&&ok?'next':'held';nodes+=`<div class="node ${c}" role="img" aria-label="Sessão ${n}, ${c==='next'?'próxima':'reservada'}">${n}</div>`}
+    const steps=['Pedido feito','Recepção confirma','Primeira sessão'];
+    const cur=ok?2:1;
+    inner=`<div class="cols"><div class="col-a">
+      <section class="card promise ${ok?'ok pop':''}"><h2>${ok?'Tudo certo: sua 1ª sessão está confirmada':'Pedido enviado'}</h2><p>${ok?`${slot[0].toUpperCase()+slot.slice(1)}`:'A recepção confirma e avisa pelo WhatsApp.'}</p></section>
+      <section class="card sec" aria-labelledby="t-bt"><h2 id="t-bt">Seu pedido</h2><ol class="track">${steps.map((t,i)=>{const c=i<cur?'done':i===cur?'now':'';return `<li class="${c} ${c==='now'&&!ok?'wait':''}" ${c==='now'?'aria-current="step"':''}><span class="mark">${c==='done'?CHECK:''}</span><span>${t}</span></li>`}).join('')}</ol></section>
+    </div><div class="col-b">
+      <section class="card sec" aria-labelledby="t-btr"><h2 id="t-btr">Sua trilha de 10 sessões</h2>
+        <div class="trail-group"><span>${ok?'Reservadas no mesmo horário':'Serão reservadas no mesmo horário'}${pay&&pay[0]!=='part'?', conforme o plano autorizar':''}</span><div class="trail">${nodes}</div></div></section>
+    </div></div>`;
+  }
+  return `<main class="patient wide gutter">${ptools()}
+    <div class="hello"><h1>Oi, Bruna</h1><p>${slot?'Seu horário fica guardado do começo ao fim do tratamento.':'Marque sua primeira sessão em Boa Viagem. Leva 1 minuto.'}</p></div>
+    ${inner}</main>`;
+}
+
+/* ---------- Joana ---------- */
+function shell(inner){return `<main class="team gutter"><div class="brand"><strong>Trilha 10</strong><span>Clínica Movimento, Boa Viagem</span></div>${inner}<p class="foot">Dados simulados a partir do desafio.</p></main>`}
+function jtabs(){
+  const t=[['fila','Fila do dia'],['agenda','Agenda'],['espera','Lista de espera'],['pacientes','Pacientes'],['registro','Registro'],['msgs','Mensagens']];
+  return `<span class="seg jt" role="group" aria-label="Seções da recepção">${t.map(([k,l])=>`<button data-a="jtab" data-v="${k}" data-k="jtab-${k}" aria-pressed="${s.jtab===k}">${l}</button>`).join('')}</span>`;
+}
+const jhead=(t,sub)=>`<div class="top"><div class="title"><h1>${t}</h1><p>${sub}</p></div>${jtabs()}</div>`;
+function joana(){return ({registro,msgs:mensagens,agenda,espera,pacientes})[s.jtab]?.()||queue()}
+function queue(){
+  const o=s.open,ab=vagasBy('aberta'),of=vagasBy('oferta'),count=o.length+ab.length+of.length;
+  const sub=count===0?'Nada pendente por agora.':count===1?'1 coisa pede sua atenção hoje.':`${count} coisas pedem sua atenção hoje.`;
+  const task=(id,name,txt,act,label)=>o.includes(id)?`<li class="task"><div><b>${name}</b><p>${txt}</p></div><button class="btn line small" data-a="${act}" data-v="${id}" data-k="${act}-${id}">${label}</button></li>`:'';
+  const by=w=>w==='filho'?' Pedido feito pelo Fábio, filho.':'';
+  const agora=ab.map(([k,v])=>{const n=fitsFor(k).length;return `<div class="urgent"><div><span class="tag">Vaga aberta agora</span><h3>${dayLabel(v.n)}, às ${v.h}</h3><p>${v.origem}. ${n?`${n} ${n>1?'pessoas esperam':'pessoa espera'} por este horário.`:'Ninguém da lista espera por este horário.'}</p></div><button class="btn" data-a="panel" data-v="${k}" data-k="panel-${v.n}-${v.h}">Oferecer à lista de espera</button></div>`}).join('');
+  const offers=of.map(([k,v])=>`<li class="task"><div><b>${pname(v.to)}</b><p>Oferta da vaga de ${dayLabel(v.n).toLowerCase()}, às ${v.h}. Aguardando resposta no WhatsApp.</p></div><div class="two"><button class="btn small" data-a="vaceita" data-v="${k}" data-k="vaceita-${v.n}-${v.h}">Aceitou</button><button class="btn line small" data-a="vrecusa" data-v="${k}" data-k="vrecusa-${v.n}-${v.h}">Recusou</button></div></li>`).join('');
+  const today=[
+    offers,
+    s.bAsked&&!s.bOk?task('bruna','Bruna',`Paciente nova, ${payL(s.bPay).toLowerCase()}. Quer começar ${s.bAsked}.`,'finish','Confirmar 1ª sessão'):'',
+    s.asked&&!s.moved?task('celia','Dona Célia',`Pediu para mudar a 5ª sessão para ${s.asked}.${by(s.askedBy)}`,'finish','Confirmar mudança'):'',
+    s.extra&&!s.extraDone?task('extra','Dona Célia',`Pediu uma sessão a mais para ${s.extra}.${by(s.extraBy)}`,'finish','Confirmar sessão'):'',
+    s.rita==='novo'?task('rita','Rita','Fez a 2ª sessão. Pedir relatório ao Paulo.','askrep','Pedir relatório'):s.rita==='pronto'?task('rita','Rita','Relatório do Paulo pronto, enviar no portal.','finish','Marcar como enviado'):'',
+    task('edson','Seu Edson','Relatório pronto, enviar no portal.','finish','Marcar como enviado')
+  ].join('');
+  const waiting=[
+    !s.released?'<li><b>Dona Célia</b><span>Convênio A, em análise</span></li>':'',
+    s.rita==='pedido'?'<li><b>Rita</b><span>Aguardando relatório do Paulo</span></li>':'',
+    '<li><b>Seu Antônio</b><span>Convênio B, em análise. O horário dele continua guardado.</span></li>'
+  ].join('');
+  const done=s.done.length?s.done.map(d=>`<li class="check">${CHECK}<div>${d.t}</div></li>`).join(''):'<li class="none">Nada concluído ainda.</li>';
+  return shell(`${jhead('Bom dia, Joana',sub)}
+    <div class="queue-grid"><div>
+      ${agora?`<section class="lane"><h2>AGORA</h2><div class="urg-list">${agora}</div></section>`:''}
+      <section class="lane"><h2>HOJE</h2>${today?`<ul class="tasks">${today}</ul>`:'<p class="empty">Tudo em dia.</p>'}</section>
+    </div>
+    <aside class="aside">
+      <section><h2>AGUARDANDO O CONVÊNIO</h2><ul class="mini">${waiting}</ul></section>
+      <section><h2>FEITO HOJE</h2><ul class="mini">${done}</ul></section>
+    </aside></div>`);
+}
+function calStrip(sel,key,mode){
+  const dot=n=>{
+    if(mode==='ag'){if(n<TODAY)return '<small></small>';const f=freeFor(n).length;return `<small class="${f?'ok':''}">${f?f+(f>1?' livres':' livre'):'cheio'}</small>`}
+    if(n<TODAY)return '<small class="ok">salvo</small>';
+    if(n===TODAY)return `<small class="${s.regSaved?'ok':'todo'}">${s.regSaved?'salvo':'a fazer'}</small>`;
+    return '<small></small>'};
+  return `<div class="cal"><button class="calnav" data-a="${key}nav" data-v="-1" data-k="${key}prev" aria-label="Dia anterior" ${sel===CAL[0].n?'disabled':''}>‹</button>
+    <div class="calstrip" role="group" aria-label="Dias">${CAL.map(d=>`<button class="calday ${d.n===TODAY?'today':''}" data-a="${key}" data-v="${d.n}" data-k="${key}-${d.n}" aria-pressed="${sel===d.n}" ${d.n===TODAY?'aria-current="date"':''}><span>${d.w}</span><b>${d.n}</b>${dot(d.n)}</button>`).join('')}</div>
+    <button class="calnav" data-a="${key}nav" data-v="1" data-k="${key}next" aria-label="Próximo dia" ${sel===CAL[CAL.length-1].n?'disabled':''}>›</button>
+    ${sel!==TODAY?`<button class="link" data-a="${key}" data-v="${TODAY}" data-k="${key}-hoje">Voltar para hoje</button>`:''}</div>`;
+}
+function pastView(n){
+  const R=PAST[n],c=k=>R.filter(r=>r[3]===k).length,re=R.filter(r=>r[4]&&r[4].startsWith('Sim')).length;
+  return `<div class="tally"><div><b>${c('veio')}</b><span>compareceram</span></div><div><b>${c('faltou')}</b><span>faltaram</span></div><div><b>${c('menos')+c('mais')}</b><span>cancelaram</span></div><div class="good"><b>${re}</b><span>vagas reaproveitadas</span></div></div>
+    <ul class="reg">${R.map(r=>`<li class="reg-row"><div class="reg-h">${r[0]}</div><div class="reg-who"><b>${r[1]}</b><span>${r[2]}</span></div><div class="reg-st"><span class="badge st-${r[3]}">${ST_LAB[r[3]]}</span>${r[4]?`<span class="muted">Vaga: ${r[4]}</span>`:''}</div></li>`).join('')}</ul>
+    <p class="notice ok" role="status">Registro salvo na planilha.</p>`;
+}
+function futureView(n){
+  const rows=HRS.filter(h=>!freeFor(n).includes(h)).map(h=>{const o=whoAt(n,h);return `<li class="reg-row"><div class="reg-h">${h}</div><div class="reg-who"><b>${o.name}</b><span>${o.tag?o.tag+(o.pend&&!o.name.startsWith('Em oferta')?', aguardando confirmação':''):'Sessão marcada'}</span></div></li>`}).join('');
+  return `<p class="rule">O registro abre no próprio dia. Até lá, esta lista mostra quem está marcado e as vagas em aberto.</p>
+    <ul class="reg">${rows}</ul>
+    <div class="reg-save"><button class="btn line" data-a="toag" data-v="${n}" data-k="toag">Ver este dia na agenda</button></div>`;
+}
+function todayView(hdr){
+  const rows=REG.map(r=>{const st=s.reg[r.id],ru=s.reuse[r.id],vg=r.key&&s.vagas[r.key];
+    const needs=st&&st!=='veio';
+    const reuseUI=!needs?'':vg&&vg.st==='preenchida'?`<p class="reuse-auto">${CHECK}Vaga reaproveitada: ${pname(vg.to)}, pela lista de espera</p>`:
+      `<div class="reuse"><span>A vaga foi reaproveitada?</span><span class="mini-seg" role="group" aria-label="Vaga reaproveitada, ${r.n}"><button data-a="reuse" data-v="${r.id}:sim" data-k="reuse-${r.id}-sim" aria-pressed="${ru==='sim'}">Sim</button><button data-a="reuse" data-v="${r.id}:nao" data-k="reuse-${r.id}-nao" aria-pressed="${ru==='nao'}">Não</button></span></div>${vg&&vg.st==='oferta'?`<span class="muted">Oferta enviada a ${pname(vg.to)}, ainda sem resposta.</span>`:''}`;
+    return `<li class="reg-row"><div class="reg-h">${r.h}</div><div class="reg-who"><b>${r.n}</b><span>${r.s}, com ${r.f}</span></div>
+      <div class="reg-st"><div class="st" role="group" aria-label="O que aconteceu, ${r.n}">${ST.map(([k,l])=>`<button class="st-${k}" data-a="st" data-v="${r.id}:${k}" data-k="st-${r.id}-${k}" aria-pressed="${st===k}">${l}</button>`).join('')}</div>${reuseUI}</div></li>`}).join('');
+  const vals=REG.map(r=>s.reg[r.id]),cnt=k=>vals.filter(v=>v===k).length;
+  const ready=REG.every(r=>{const v=s.reg[r.id],vg=r.key&&s.vagas[r.key];return v&&(v==='veio'||(vg&&vg.st==='preenchida')||s.reuse[r.id])});
+  return shell(`${hdr}
+    <div class="tally"><div><b>${cnt('veio')}</b><span>compareceram</span></div><div><b>${cnt('faltou')}</b><span>faltaram</span></div><div><b>${cnt('menos')+cnt('mais')}</b><span>cancelaram</span></div><div class="good"><b>${reusedCount()}</b><span>vagas reaproveitadas</span></div></div>
+    <p class="rule">Cancelar com menos de 24h ganha um status próprio. Antes, Boa Viagem contava isso como falta e Casa Forte não. Agora as duas unidades medem igual.</p>
+    <ul class="reg">${rows}</ul>
+    <div class="reg-save">${s.regSaved?`<p class="notice ok" role="status">Registro salvo na planilha. Ricardo já vê as vagas reaproveitadas.</p>`:`<button class="btn" data-a="savereg" data-k="savereg" ${ready?'':'disabled'}>Salvar registro do dia</button>${ready?'':'<span class="muted">Marque todos os horários para salvar.</span>'}`}</div>`);
+}
+function registro(){
+  const n=s.rd;
+  const hdr=`${jhead('Registro do dia',`${dayLabel(n)}${n===TODAY?' (hoje)':''}. Os mesmos status valem em Boa Viagem e em Casa Forte.`)}${calStrip(n,'rd','rg')}`;
+  if(n<TODAY)return shell(hdr+pastView(n));
+  if(n>TODAY)return shell(hdr+futureView(n));
+  return todayView(hdr);
+}
+function agenda(){
+  const n=s.ad,past=n<TODAY,fr=freeFor(n);
+  const rows=HRS.map(h=>{
+    const k=n+'|'+h;
+    if(!past&&fr.includes(h))
+      return `<li class="ag-row free"><span class="ag-h">${h}</span><span class="ag-w"><b>Livre</b></span><button class="btn small" data-a="book" data-v="${n}:${h}" data-k="book-${n}-${h}">Marcar</button></li>`;
+    const o=whoAt(n,h);
+    if(o.open&&!past)return `<li class="ag-row open"><span class="ag-h">${h}</span><span class="ag-w"><b>Vaga aberta</b><small>${o.tag}</small></span><button class="btn small" data-a="panel" data-v="${k}" data-k="agv-${n}-${h}">Oferecer à lista</button></li>`;
+    return `<li class="ag-row"><span class="ag-h">${h}</span><span class="ag-w"><b>${o.name}</b>${o.tag?`<small>${o.tag}${o.pend&&!o.name.startsWith('Em oferta')?', aguardando confirmação':''}</small>`:''}</span>${o.pend?'<span class="badge st-menos">Pendente</span>':''}</li>`}).join('');
+  const nx=[];CAL.filter(d=>d.n>=TODAY).forEach(d=>freeFor(d.n).forEach(h=>nx.push([d.n,h])));
+  const nextList=nx.slice(0,6).map(([dn,h])=>`<li class="person"><div><b>${dayLabel(dn)}</b><p>às ${h}</p></div><button class="btn line small" data-a="book" data-v="${dn}:${h}" data-k="bookn-${dn}-${h}">Marcar</button></li>`).join('')||'<li class="none">Nenhum horário livre.</li>';
+  return shell(`${jhead('Agenda',`${dayLabel(n)}${n===TODAY?' (hoje)':''}. Para quem pediu horário pelo WhatsApp, por telefone ou no balcão.`)}${calStrip(n,'ad','ag')}
+    <div class="queue-grid"><div><h2 class="h2s">${past?'Dia passado':fr.length?`${fr.length} ${fr.length>1?'horários livres':'horário livre'}`:'Sem horário livre neste dia'}</h2><ul class="ag">${rows}</ul></div>
+    <aside class="aside"><section><h2>PRÓXIMOS HORÁRIOS LIVRES</h2><ul class="mini">${nextList}</ul></section></aside></div>`);
+}
+function bookSheet(){
+  if(!s.book)return'';
+  const b=s.book,wa=b.ch==='WhatsApp';
+  return `<div class="veil" data-a="bkclose" data-self="1"><div class="sheet" role="dialog" aria-modal="true" aria-labelledby="t-bk">
+    <div class="panel-top"><h2 id="t-bk">Marcar ${dayLabel(b.n).toLowerCase()}, às ${b.h}</h2><button class="close" data-a="bkclose" data-k="bkclose" aria-label="Fechar">${CLOSE}</button></div>
+    <p class="sheet-sub">Quem pediu? A pessoa recebe a confirmação pelo WhatsApp.</p>
+    <h3 class="h3s">Quem</h3>
+    <div class="times" role="group" aria-label="Quem">${WHO.map(k=>`<button data-a="bw" data-v="${k}" data-k="bw-${k}" aria-pressed="${b.who===k}">${k==='novo'?'Pessoa nova':pname(k)}</button>`).join('')}</div>
+    ${b.who==='novo'?`<label class="fld" for="bk-name">Nome da pessoa</label><input id="bk-name" class="inp" data-bkname="1" autocomplete="off" placeholder="Ex.: Lúcia Andrade" value="${esc(b.name)}">
+      <h3 class="h3s">Como vai pagar</h3><div class="times" role="group" aria-label="Como vai pagar">${PAYS.map(([k,l])=>`<button data-a="bkpay" data-v="${k}" data-k="bkpay-${k}" aria-pressed="${b.pay===k}">${l}</button>`).join('')}</div>`:''}
+    <h3 class="h3s">Como pediu</h3>
+    <div class="times" role="group" aria-label="Como pediu">${CHN.map(([k,l])=>`<button data-a="bch" data-v="${k}" data-k="bch-${k}" aria-pressed="${b.ch===k}">${l}</button>`).join('')}</div>
+    ${wa?'<p class="rule">A pessoa pediu por mensagem. Você confirma aqui e a resposta sai no mesmo WhatsApp.</p>':''}
+    <button class="btn block" data-a="bookok" data-k="bookok" ${bookReady()?'':'disabled'}>Marcar e avisar pelo WhatsApp</button>
+  </div></div>`;
+}
+function espera(){
+  const rows=HRS.map(h=>{const q=s.wait.filter(e=>e.st==='esperando'&&e.hours.includes(h));
+    return `<li class="wl-row"><span class="ag-h">${h}</span><div class="wl-names">${q.length?q.map((e,i)=>`<span><i>${i+1}º</i>${pname(e.id)}</span>`).join(''):'<em>Ninguém esperando</em>'}</div><span class="wl-c">${q.length?q.length+(q.length>1?' pessoas':' pessoa'):''}</span></li>`}).join('');
+  const lab={esperando:['Esperando',''],oferta:['Oferta enviada','st-menos'],encaixado:['Encaixado','st-veio']};
+  const people=s.wait.map(e=>{const p=pget(e.id),st=lab[e.st];
+    return `<li class="wp"><div class="wp-top"><b>${p.name}</b><span class="badge ${st[1]}">${st[0]}</span></div>
+      <span class="muted">${payL(p.pay)} · prefere ${e.hours.join(', ')}${e.sat?' · viria no sábado':''}</span>
+      <span class="muted">Na lista desde ${e.since}. ${e.note||''}</span>
+      ${e.st==='esperando'?`<button class="link" data-a="wdel" data-v="${e.id}" data-k="wdel-${e.id}">Tirar da lista</button>`:''}</li>`}).join('');
+  const n=s.wait.filter(e=>e.st==='esperando').length;
+  return shell(`${jhead('Lista de espera',`${n} ${n===1?'pessoa esperando':'pessoas esperando'} por um horário, em ordem de chegada.`)}
+    <div class="reg-save"><button class="btn" data-a="wadd" data-k="wadd">Adicionar à lista</button><span class="muted">Só entra quem aceitou esperar. A oferta sai pelo WhatsApp quando uma vaga abre.</span></div>
+    <div class="queue-grid"><div><h2 class="h2s">Por horário</h2><ul class="wl">${rows}</ul></div>
+    <aside class="aside"><section><h2>QUEM ESTÁ NA LISTA</h2><ul>${people}</ul></section></aside></div>`);
+}
+function waitSheet(){
+  if(!s.wform)return'';
+  const f=s.wform,cand=s.pats.filter(p=>!s.wait.find(e=>e.id===p.id));
+  return `<div class="veil" data-a="wclose" data-self="1"><div class="sheet" role="dialog" aria-modal="true" aria-labelledby="t-wf">
+    <div class="panel-top"><h2 id="t-wf">Adicionar à lista de espera</h2><button class="close" data-a="wclose" data-k="wclose" aria-label="Fechar">${CLOSE}</button></div>
+    <p class="sheet-sub">Pergunte antes se a pessoa aceita esperar e quais horários servem.</p>
+    <h3 class="h3s">Quem</h3>
+    <div class="times" role="group" aria-label="Quem">${cand.map(p=>`<button data-a="wwho" data-v="${p.id}" data-k="wwho-${p.id}" aria-pressed="${f.id===p.id}">${p.name}</button>`).join('')||'<span class="muted">Todos os pacientes já estão na lista.</span>'}</div>
+    <h3 class="h3s">Horários que servem</h3>
+    <div class="times" role="group" aria-label="Horários que servem">${HRS.map(h=>`<button data-a="whour" data-v="${h}" data-k="whour-${h}" aria-pressed="${f.hours.includes(h)}">${h}</button>`).join('')}</div>
+    <button class="switch" role="switch" aria-checked="${f.sat}" data-a="wsat" data-k="wsat"><span class="knob" aria-hidden="true"></span>Viria no sábado</button>
+    <button class="btn block" data-a="wsave" data-k="wsave" ${wformOk()?'':'disabled'}>Colocar na lista</button>
+  </div></div>`;
+}
+function pacientes(){
+  const f=s.pf,q=s.q.trim().toLowerCase();
+  const list=s.pats.filter(p=>f==='todos'||(f==='conv'?p.pay!=='part':p.pay==='part'));
+  const c={todos:s.pats.length,conv:s.pats.filter(p=>p.pay!=='part').length,part:s.pats.filter(p=>p.pay==='part').length};
+  const fl=[['todos','Todos'],['conv','Convênio'],['part','Particular']];
+  const rows=list.map(p=>`<li class="pt" data-row="1" data-name="${esc(p.name.toLowerCase())}" ${q&&!p.name.toLowerCase().includes(q)?'hidden':''}>
+      <div><b>${esc(p.name)}</b>${p.resp?`<small>Responsável: ${esc(p.resp)}</small>`:''}</div>
+      <div><span>${esc(p.tel)}</span><small>WhatsApp</small></div>
+      <div><span class="badge ${p.pay==='part'?'part':'conv'}">${payL(p.pay)}</span></div>
+      <div><span>${p.sess?`Fez ${p.sess} de 10`:'Ainda não começou'}</span></div>
+      <div><span>${esc(p.hor)}</span><small>${p.fisio==='—'?'Sem fisioterapeuta':'Com '+p.fisio}</small></div>
+      <div class="pt-e"><button class="btn line small" data-a="pedit" data-v="${p.id}" data-k="pedit-${p.id}">Editar</button></div></li>`).join('');
+  return shell(`${jhead('Pacientes',`${c.todos} pacientes em Boa Viagem: ${c.conv} de convênio e ${c.part} particulares.`)}
+    <div class="toolbar">
+      <span class="seg" role="group" aria-label="Filtrar">${fl.map(([k,l])=>`<button data-a="pf" data-v="${k}" data-k="pf-${k}" aria-pressed="${f===k}">${l} <span class="cnt">${c[k]}</span></button>`).join('')}</span>
+      <label class="sr" for="pq">Buscar paciente</label><input id="pq" class="inp" data-q="1" type="search" autocomplete="off" placeholder="Buscar pelo nome" value="${esc(s.q)}">
+      <button class="btn" data-a="pnew" data-k="pnew">Cadastrar paciente</button>
+    </div>
+    <p class="rule">Quem é particular não aparece como opção nas mensagens sobre convênio.</p>
+    <ul class="pts"><li class="pt pt-h" aria-hidden="true"><span>Nome</span><span>Contato</span><span>Pagamento</span><span>Tratamento</span><span>Horário fixo</span><span></span></li>${rows}</ul>`);
+}
+function patSheet(){
+  if(!s.form)return'';
+  const f=s.form,isNew=!f.id;
+  const inp=(k,l,ph,opt)=>`<label class="fld" for="pf-${k}">${l}${opt?' <small>(opcional)</small>':''}</label><input id="pf-${k}" class="inp" data-f="${k}" autocomplete="off" placeholder="${ph}" value="${esc(f[k])}">`;
+  return `<div class="veil" data-a="fclose" data-self="1"><div class="sheet" role="dialog" aria-modal="true" aria-labelledby="t-pf">
+    <div class="panel-top"><h2 id="t-pf">${isNew?'Cadastrar paciente':'Editar '+esc(f.name)}</h2><button class="close" data-a="fclose" data-k="fclose" aria-label="Fechar">${CLOSE}</button></div>
+    ${inp('name','Nome','Nome completo')}
+    ${inp('tel','WhatsApp','(81) 9 0000-0000')}
+    <h3 class="h3s">Pagamento</h3>
+    <div class="times" role="group" aria-label="Pagamento">${PAYS.map(([k,l])=>`<button data-a="fpay" data-v="${k}" data-k="fpay-${k}" aria-pressed="${f.pay===k}">${l}</button>`).join('')}</div>
+    ${inp('hor','Horário fixo','Ex.: Ter e Qui, 10h',true)}
+    ${inp('resp','Responsável','Ex.: Fábio (filho)',true)}
+    <button class="btn block" data-a="fsave" data-k="fsave" ${formOk()?'':'disabled'}>${isNew?'Cadastrar':'Salvar'}</button>
+  </div></div>`;
+}
+function sugg(k){
+  const o=s.open,out=[],sentTo=s.sentTo[k]||[],t=TPL.find(x=>x.k===k);
+  if(k==='pedido'){
+    if(!o.includes('edson'))out.push(['edson','Relatório enviado no portal hoje']);
+    if(s.rita==='pronto'&&!o.includes('rita'))out.push(['rita','Relatório enviado no portal hoje']);
+  }
+  if(k==='porque'){out.push(['celia','Fez a 4ª sessão'],['carla','Fez a 4ª sessão'])}
+  if(k==='atraso')out.push(['antonio','Plano sem resposta há 8 dias úteis']);
+  if(k==='vespera')Object.keys(s.booked).forEach(key=>{const [n,h]=key.split('|'),b=s.booked[key];
+    if(+n===TODAY+1&&!b.pend)out.push([`b-${n}-${h}`,`Marcado para amanhã, às ${h}`,b.name])});
+  return out.filter(x=>!sentTo.includes(x[0])&&(!t.conv||!pget(x[0])||pget(x[0]).pay!=='part'));
+}
+function mensagens(){
+  const sent=s.msgs.map(m=>`<li><b>${m.to}</b><span>${m.t} · ${m.h}</span></li>`).join('');
+  const rep=s.replies.length?s.replies.map(m=>`<li class="check">${CHECK}<div><b>${m.to}</b><span>${m.t}</span></div></li>`).join(''):'<li class="none">Nenhuma resposta ainda.</li>';
+  const cards=TPL.map((m,i)=>{
+    const su=sugg(m.k),sentTo=s.sentTo[m.k]||[];
+    const sel=s.sel[m.k]||su.map(x=>x[0]);
+    const others=s.pats.filter(p=>!su.find(y=>y[0]===p.id)&&!sentTo.includes(p.id)&&(!m.conv||p.pay!=='part'));
+    const n=sel.length,c=s.cnt[m.k];
+    return `<li class="tpl"><div class="tpl-top"><span class="tpl-n">${i+1}</span><div><h3>${m.n}</h3><p><b>Quando:</b> ${m.q}</p><p><b>Para quem:</b> ${m.to}</p></div><span class="tpl-st">Hoje: ${c?c+(c===1?' enviada':' enviadas'):'nenhuma'}</span></div>
+      <div class="bubble tpl-b">${m.txt}${m.k==='vespera'?'<div class="qr static"><span>Vou comparecer</span><span>Preciso remarcar</span></div>':''}</div>
+      <div class="rcp"><div class="rcp-h"><b>Para quem enviar</b><span>${su.length?'Sugestão a partir da agenda e das renovações':'Ninguém está nessa situação agora'}</span>${m.conv?'<span class="conv-note">Só convênio: particulares não aparecem</span>':''}</div>
+        ${su.length?`<ul class="rcp-list">${su.map(([id,why,l])=>`<li><button class="chk" role="checkbox" aria-checked="${sel.includes(id)}" data-a="rcp" data-v="${m.k}:${id}" data-k="rcp-${m.k}-${id}"><span class="box">${CHECK}</span><span><b>${l||pname(id)}</b><small>${why}</small></span></button></li>`).join('')}</ul>`:''}
+        ${s.more[m.k]?`<div class="chips-o" role="group" aria-label="Outras pessoas">${others.map(p=>`<button class="chk" role="checkbox" aria-checked="${sel.includes(p.id)}" data-a="rcp" data-v="${m.k}:${p.id}" data-k="rcp-${m.k}-${p.id}"><span class="box">${CHECK}</span><span><b>${p.name}</b></span></button>`).join('')||'<span class="muted">Não há mais ninguém para esta mensagem.</span>'}</div>`:''}
+        <div class="rcp-send"><button class="btn small" data-a="send" data-v="${m.k}" data-k="send-${m.k}" ${n?'':'disabled'}>${n?`Enviar para ${n} ${n===1?'pessoa':'pessoas'}`:'Escolha para quem enviar'}</button>
+        <button class="link" data-a="more" data-v="${m.k}" data-k="more-${m.k}">${s.more[m.k]?'Esconder outras pessoas':'Escolher outras pessoas'}</button></div></div></li>`}).join('');
+  return shell(`${jhead('Mensagens','As 4 mensagens da trilha, quando cada uma sai e para quem.')}
+    <p class="rule">Semanas 2 a 7: a Joana confere para quem vai cada texto e envia com um toque. A partir da semana 8, o envio passa a ser automático, e as sugestões viram regras.</p>
+    <div class="queue-grid"><ol class="tpls">${cards}</ol>
+    <aside class="aside"><section><h2>RESPOSTAS DE HOJE</h2><ul class="mini">${rep}</ul></section><section><h2>ENVIADAS HOJE</h2><ul class="mini">${sent}</ul></section></aside></div>`);
+}
+function panel(){
+  if(!s.panel||!s.vagas[s.panel])return'';
+  const k=s.panel,v=s.vagas[k],fit=fitsFor(k);
+  const out=s.wait.filter(e=>e.st==='esperando'&&!fit.includes(e));
+  const rule=v.quem==='celia'?'A Dona Célia continua com os outros horários dela. Só esta data vai para a lista.':'Quem aceitar ocupa só este horário.';
+  const row=(e,i)=>`<li class="person"><div><b>${i+1}º · ${pname(e.id)}</b><p>${e.note} Na lista desde ${e.since}.</p></div><button class="btn ${i===0?'':'line'} small" data-a="offer" data-v="${e.id}" data-k="offer-${e.id}">Oferecer a vaga</button></li>`;
+  const no=e=>`<li class="person"><div><b>${pname(e.id)}</b><p>Prefere ${e.hours.join(', ')}.</p></div><span class="misfit">${v.skip.includes(e.id)?'Recusou esta vaga':'Não encaixa'}</span></li>`;
+  return `<div class="panel-veil" data-a="closePanel" data-self="1"><aside class="panel" role="dialog" aria-modal="true" aria-labelledby="t-panel">
+    <div class="panel-top"><div><h2 id="t-panel">${dayLabel(v.n)}, às ${v.h}</h2><p class="panel-sub">${v.origem}</p></div><button class="close" data-a="closePanel" data-k="closePanel" aria-label="Fechar">${CLOSE}</button></div>
+    <p class="rule">${rule}</p>
+    <section><h3 style="font-size:13px;font-weight:600;letter-spacing:.06em;color:var(--ink-2);padding-bottom:8px;border-bottom:1px solid var(--line)">LISTA DE ESPERA PARA AS ${v.h.toUpperCase()}</h3>
+      <ul>${fit.map(row).join('')}${out.map(no).join('')}</ul>
+      ${fit.length?'':`<p class="muted" style="margin-top:12px">Ninguém da lista espera por este horário.</p><button class="btn line block" style="margin-top:12px" data-a="vlivre" data-v="${k}" data-k="vlivre">Deixar livre na agenda</button>`}</section>
+  </aside></div>`;
+}
+
+/* ---------- Fisioterapeuta ---------- */
+function paulo(){
+  const r=s.rita;
+  const mine=s.pats.filter(p=>p.fisio==='Paulo'&&p.sess>0);
+  const status=id=>id==='celia'?(s.released?' Plano liberou as sessões 6 a 10.':' Plano analisando a renovação.'):id==='rita'?(r==='novo'?' A recepção ainda não pediu o relatório.':r==='pedido'?' Relatório pedido. Falta escrever.':' Relatório entregue à recepção.'):'';
+  const vs=s.vsent.length?s.vsent.map(v=>`<li class="check">${CHECK}<div><b>${v.to}</b><span>${v.t}</span></div></li>`).join(''):'<li class="none">Nenhum vídeo enviado hoje.</li>';
+  return shell(`<div class="title"><h1>Bom dia, Paulo</h1><p>${r==='pedido'?'1 relatório pedido pela recepção.':'Nenhum relatório pendente.'}</p></div>
+    <div class="queue-grid"><div>
+      ${r==='pedido'?`<section class="lane"><h2>AGORA</h2><div class="urgent"><div><span class="tag">Pedido da Joana</span><h3>Relatório da Rita</h3><p>2ª sessão, Convênio B. A recepção envia ao plano.</p></div><button class="btn" data-a="rep" data-k="rep">Escrever relatório</button></div></section>`:`<section class="lane"><h2>AGORA</h2><p class="empty">${r==='pronto'?'Relatório enviado. Obrigado, Paulo.':'Nada para escrever agora.'}</p></section>`}
+      <section class="lane"><h2>SEUS PACIENTES</h2><ul class="tasks">${mine.map(p=>`<li class="task"><div><b>${p.name}</b><p>${payL(p.pay)} · fez ${p.sess} de 10.${status(p.id)}</p></div><button class="btn line small" data-a="vid" data-v="${p.id}" data-k="vid-${p.id}">Enviar vídeo</button></li>`).join('')}</ul></section>
+    </div>
+    <aside class="aside">
+      <section><h2>VÍDEOS ENVIADOS HOJE</h2><ul class="mini">${vs}</ul></section>
+      <section><h2>O QUE VOCÊ VÊ</h2><ul class="mini"><li><b>Só os seus pacientes</b><span>A recepção e o dono não veem o texto clínico do relatório.</span></li><li><b>Sem senha e sem planilha</b><span>O pedido chega no WhatsApp e o relatório é escrito aqui.</span></li></ul></section>
+    </aside></div>`);
+}
+function repSheet(){
+  if(!s.rep)return'';
+  return `<div class="veil" data-a="closeRep" data-self="1"><div class="sheet" role="dialog" aria-modal="true" aria-labelledby="t-rep">
+    <div class="panel-top"><h2 id="t-rep">Relatório da Rita</h2><button class="close" data-a="closeRep" data-k="closeRep" aria-label="Fechar">${CLOSE}</button></div>
+    <p class="sheet-sub">2ª sessão, Convênio B. Escreva como faria no papel; a recepção anexa no portal do plano.</p>
+    <div class="fld-row"><label class="fld" for="rep-ev">Evolução</label><button class="link" data-a="repmodel" data-k="repmodel">Usar texto de exemplo</button></div>
+    <textarea id="rep-ev" class="ta" data-rep="ev" rows="4" placeholder="Como a paciente chegou, o que melhorou e o que ainda limita.">${esc(s.repEv)}</textarea>
+    <label class="fld" for="rep-plan">Plano para as próximas sessões</label>
+    <textarea id="rep-plan" class="ta" data-rep="plan" rows="3" placeholder="O que será feito nas próximas sessões e por quê.">${esc(s.repPlan)}</textarea>
+    <h3 class="h3s">Sessões pedidas ao plano</h3>
+    <div class="times" role="group" aria-label="Sessões pedidas">${[5,10].map(n=>`<button data-a="repn" data-v="${n}" data-k="repn-${n}" aria-pressed="${s.repN===n}">${n} sessões</button>`).join('')}</div>
+    <button class="btn block" data-a="sendrep" data-k="sendrep" ${repOk()?'':'disabled'}>Enviar para a Joana</button>
+    <p class="muted center">O texto clínico fica só com a recepção e o plano.</p>
+  </div></div>`;
+}
+function vidSheet(){
+  if(!s.vid)return'';
+  const p=pget(s.vid.pid);
+  return `<div class="veil" data-a="vclose" data-self="1"><div class="sheet" role="dialog" aria-modal="true" aria-labelledby="t-vid">
+    <div class="panel-top"><h2 id="t-vid">Enviar vídeo para ${p.name}</h2><button class="close" data-a="vclose" data-k="vclose" aria-label="Fechar">${CLOSE}</button></div>
+    <p class="sheet-sub">Vídeos padrão, gravados uma vez e aprovados pela equipe. Você escolhe o exercício e, se quiser, deixa um recado.</p>
+    <div class="vlist" role="radiogroup" aria-label="Vídeos de exercício">${VIDEOS.map(v=>`<button class="vopt" role="radio" aria-checked="${s.vid.v===v.id}" data-a="vpick" data-v="${v.id}" data-k="vpick-${v.id}"><span class="vthumb">${PLAY}</span><span><b>${v.t}</b><small>${v.d} · ${v.a}</small></span></button>`).join('')}</div>
+    <label class="fld" for="vid-note">Recado <small>(opcional)</small></label>
+    <textarea id="vid-note" class="ta" data-vnote="1" rows="2" placeholder="Ex.: 3 séries de 10, de manhã e à noite.">${esc(s.vid.note)}</textarea>
+    <button class="btn block" data-a="vsend" data-k="vsend" ${s.vid.v?'':'disabled'}>Enviar pelo WhatsApp</button>
+  </div></div>`;
+}
+
+/* ---------- Ricardo ---------- */
+function simUI(){
+  const c=calc();
+  const sl=(k,label,min,max,step,unit,pdf,src)=>`<div class="sl"><div class="sl-top"><label for="sl-${k}">${label}</label><output id="o-${k}" for="sl-${k}">${fmt(s.sim[k])}${unit}</output></div>
+    <input type="range" id="sl-${k}" data-sim="${k}" min="${min}" max="${max}" step="${step}" value="${s.sim[k]}">
+    <p class="sl-src">${src} Faixa usada no PDF: ${pdf}.</p></div>`;
+  return `<section class="sim" aria-labelledby="t-sim"><div class="sim-head"><h2 id="t-sim">Simule as premissas</h2>
+      <p>Os controles são suposições nossas. As bases vêm dos dados do desafio: 150 faltas por mês em Boa Viagem, 20,5 delas de excesso do convênio nas sessões 6 a 10, R$ 55 por sessão de convênio e R$ 77 por falta, em média.</p></div>
+    <div class="sim-grid"><div class="sls">
+      ${sl('renov','Renovação e reserva: quanto do excesso de faltas evitamos',20,80,5,'%','40% a 60%','Sobre 20,5 faltas por mês, a R$ 55 cada.')}
+      ${sl('late','Lista de espera: quanto das faltas é cancelamento tardio',10,30,1,'%','15% a 25%','Sobre 150 faltas, com 60% das vagas preenchidas, a R$ 77 cada.')}
+      ${sl('ori','Orientação: queda da falta nas sessões 6 a 10',0,5,.5,' pontos','2 a 3 pontos','Cada ponto evita cerca de 3 faltas, a R$ 77 cada.')}
+    </div><div class="sim-out" aria-live="polite">
+      <div><span>Faltas evitadas por mês</span><b id="so-f">${fmt1(c.f)}</b></div>
+      <div><span>Ganho por mês</span><b id="so-g">${brl(c.g)}</b></div>
+      <div class="pay"><span>Os R$ 20 mil se pagam em</span><b id="so-m">${fmt1(c.months)} meses</b></div>
+    </div></div></section>`;
+}
+function soon(){
+  const prazo=[['Convênio A',8,'pedir depois da 2ª sessão'],['Convênio B',9,'pedir depois da 2ª sessão'],['Convênio C',5,'pedir depois da 3ª sessão']];
+  const custo=[['Convênio A',520],['Convênio B',430],['Convênio C',180]];
+  return `<section class="soon" aria-labelledby="t-soon"><div class="sim-head"><h2 id="t-soon">Em breve, com os dados do piloto</h2><p>Estas telas precisam do registro único rodando por algumas semanas. Os números abaixo são ilustrativos.</p></div>
+    <div class="soon-grid">
+      <article class="soon-card"><span class="tag-i">ILUSTRATIVO</span><h3>Prazo real por convênio</h3><p class="soon-say">O prazo de cada plano decide quando pedir a renovação.</p>
+        <ul class="bars-h">${prazo.map(([n,d,r])=>`<li><span>${n}</span><div class="bh"><i style="width:${d*10}%"></i></div><b>${d} dias úteis</b><small>${r}</small></li>`).join('')}</ul></article>
+      <article class="soon-card"><span class="tag-i">ILUSTRATIVO</span><h3>Custo do atraso por convênio</h3><p class="soon-say">Quanto cada plano custa por mês em sessões perdidas na espera.</p>
+        <ul class="bars-h">${custo.map(([n,v])=>`<li><span>${n}</span><div class="bh"><i style="width:${v/6}%"></i></div><b>${brl(v)}</b></li>`).join('')}</ul></article>
+      <article class="soon-card"><span class="tag-i">ILUSTRATIVO</span><h3>Alerta de risco de abandono</h3><p class="soon-big">3</p><p class="soon-say">pacientes faltaram à 3ª ou à 4ª sessão nesta semana. A Joana recebe os nomes; você vê só o número.</p></article>
+      <article class="soon-card"><span class="tag-i">ILUSTRATIVO</span><h3>Campanha de retorno</h3><p class="soon-big">12</p><p class="soon-say">pacientes pararam antes da 10ª sessão nos últimos 60 dias.</p><div class="bubble tpl-b">Oi, Sandra. Seu tratamento parou na 6ª sessão. Quer retomar no mesmo horário de antes?</div><span class="muted">No piloto, a Joana envia à mão.</span></article>
+    </div></section>`;
+}
+function ricardo(){
+  const t=s.mode==='trilha',c=calc();
+  const max=50;
+  const heatColor=v=>{const a=(v-14)/(34-14);return `rgba(27,95,224,${Math.min(1,.1+a*.95).toFixed(2)})`};
+  return shell(`<div class="top"><div class="title"><h1>Visão geral</h1><div class="filters"><span class="chip">Últimos 30 dias</span><span class="chip">Boa Viagem</span></div></div>
+    <span class="seg" role="group" aria-label="Cenário"><button data-a="mode" data-v="hoje" data-k="mode-hoje" aria-pressed="${!t}">Hoje</button><button data-a="mode" data-v="trilha" data-k="mode-trilha" aria-pressed="${t}">Com a Trilha 10</button></span></div>
+    <section class="hero" aria-live="polite"><div>
+      <div class="big" id="big">${brl(s.total)}</div>
+      <div class="big-label">em cadeiras vazias por mês</div>
+      <div class="big-sub"><span id="chairs">${s.chairs}</span> cadeiras vazias no período.</div>
+      ${t?`<span class="pill">Cenário simulado: <span id="pill-v">${brl(c.g)}</span> a menos no mês</span>`:''}
+      ${s.regSaved?`<p class="now-note">${CHECK} Registro de hoje salvo: ${reusedCount()} ${reusedCount()===1?'vaga reaproveitada':'vagas reaproveitadas'} pela lista de espera.</p>`:''}
+      ${vagasBy('preenchida').length?`<p class="now-note">${CHECK} Hoje, ${vagasBy('preenchida').length} ${vagasBy('preenchida').length===1?'vaga aberta foi preenchida':'vagas abertas foram preenchidas'} pela lista de espera.</p>`:''}
+      ${s.rita==='pronto'?`<p class="now-note">${CHECK} Hoje, 1 relatório foi entregue pelo fisioterapeuta. Sem texto clínico aqui.</p>`:''}
+      ${s.released?`<p class="now-note">${CHECK} Hoje, 1 renovação foi liberada antes da 6ª sessão.</p>`:''}
+    </div></section>
+    ${t?simUI():''}
+    <div class="charts">
+      <section class="chart">
+        <h2>Onde os pacientes de convênio se perdem</h2>
+        <p class="say">A maior quebra acontece depois da 5ª sessão.</p>
+        <p class="src">Falta por sessão, pacientes de convênio, rede inteira.</p>
+        <div class="plot" role="img" aria-label="Falta por sessão: de 18% na 5ª sessão para 44% na 6ª">
+          ${[50,25].map(v=>`<div class="gridline" style="top:${100-v/max*100}%"><span>${v}%</span></div>`).join('')}
+          <div class="bars">${SESSIONS.map((v,i)=>`<div class="col ${i===5?'peak':''}" style="height:${v/max*100}%"><em>${v}%</em></div>`).join('')}</div>
+        </div>
+        <div class="xs" aria-hidden="true">${SESSIONS.map((v,i)=>i===5?`<b>6ª</b>`:`<span>${i+1}ª</span>`).join('')}</div>
+      </section>
+      <section class="chart">
+        <h2>Faltas por horário</h2>
+        <p class="say">As pontas do dia faltam quase o dobro.</p>
+        <p class="src">Boa Viagem.</p>
+        <ul class="heat">${HOURS.map(([h,v])=>`<li style="background:${heatColor(v)};color:${v>25?'#fff':'var(--ink)'}"><span>${h}</span><b>${v}%</b></li>`).join('')}</ul>
+      </section>
+    </div>
+    ${soon()}`);
+}
+
+/* ---------- Motor ---------- */
+function render(){
+  let main;
+  if(s.role==='paciente')main=s.who==='bruna'?bruna():s.screen==='whatsapp'?whatsapp():rastreio()+sheet();
+  else if(s.role==='joana')main=joana()+panel()+bookSheet()+waitSheet()+patSheet();
+  else if(s.role==='paulo')main=paulo()+repSheet()+vidSheet();
+  else main=ricardo();
+  document.body.classList.toggle('aa-on',s.big&&s.role==='paciente');
+  app.innerHTML=demoBar()+main+(s.toast?`<div class="toast">${CHECK}<span>${s.toast}</span></div>`:'');
+  app.querySelectorAll('.calstrip').forEach(st=>{const e=st.querySelector('[aria-pressed="true"]');if(e)st.scrollLeft=e.offsetLeft-st.clientWidth/2+e.offsetWidth/2});
+  const el=focusKey&&app.querySelector(`[data-k="${focusKey}"]`);
+  if(el)el.focus({preventScroll:true});
+}
+function toast(t){s.toast=t;live.textContent=t;clearTimeout(toastTimer);toastTimer=setTimeout(()=>{s.toast=null;render()},3800)}
+function tween(from,to,fromC,toC){
+  const a=document.getElementById('big'),c=document.getElementById('chairs');
+  if(matchMedia('(prefers-reduced-motion:reduce)').matches||!a){return}
+  const t0=performance.now(),D=220;
+  (function f(n){const p=Math.min(1,(n-t0)/D);if(!document.getElementById('big'))return;
+    a.textContent=brl(from+(to-from)*p);c.textContent=Math.round(fromC+(toC-fromC)*p);if(p<1)requestAnimationFrame(f)})(t0);
+}
+const act={
+  role:v=>{s.role=v;s.panel=null;s.sheet=false;s.rep=false;s.book=null;s.vid=null;s.form=null;s.wform=null;scrollTo(0,0)},
+  who:v=>{s.who=v;s.sheet=false},
+  big:()=>{s.big=!s.big},
+  fcopy:()=>{s.fCopy=!s.fCopy},
+  simulate:()=>{s.busy=true;render();setTimeout(()=>{s.busy=false;s.released=true;
+    s.done.unshift({t:'<b>Dona Célia</b><span>Renovação liberada, 6ª sessão confirmada</span>'});log('Dona Célia','Plano liberou as sessões 6 a 10');
+    toast('Convênio respondeu: renovação da Dona Célia liberada.');focusKey=null;render()},750);return true},
+  reset:()=>{clearTimeout(toastTimer);s=fresh();focusKey=null;live.textContent=''},
+  open:()=>{s.screen='rastreio';focusKey=null;scrollTo(0,0)},
+  whats:()=>{s.screen='whatsapp';focusKey=null;scrollTo(0,0)},
+  vou:()=>{s.vespera='vou';s.replies.unshift({to:'Dona Célia',t:'Vou comparecer à 5ª sessão, terça às 10h'});focusKey='open';toast('Resposta registrada no painel da Joana.')},
+  vremarcar:()=>{s.vespera='remarcar';s.replies.unshift({to:'Dona Célia',t:'Preciso remarcar a 5ª sessão'});s.screen='rastreio';s.sheet='remarcar';s.day=null;s.time=null;focusKey='closeSheet';scrollTo(0,0)},
+  sheet:()=>{s.sheet='remarcar';s.day=null;s.time=null;s.toast=null;focusKey='closeSheet'},
+  extra:()=>{s.sheet='extra';s.day=null;s.time=null;s.toast=null;focusKey='closeSheet'},
+  closeSheet:()=>{focusKey=s.sheet==='extra'?'extra':'sheet';s.sheet=false},
+  day:v=>{s.day=v;s.time=null},
+  time:v=>{s.time=v},
+  ask:()=>{const d=DAYS.find(x=>x.id===s.day),w=`${d.name}, às ${s.time}`,key=`${d.n}|${s.time}`;
+    if(s.sheet==='extra'){s.extra=w;s.extraBy=s.who;s.extraKey=key;s.booked[key]={name:'Dona Célia',tag:'sessão a mais, pedido pelo site',pend:true};s.open.push('extra');focusKey='extra'}
+    else{
+      if(s.askedKey&&s.booked[s.askedKey]&&s.booked[s.askedKey].pend)delete s.booked[s.askedKey];
+      s.asked=w;s.askedBy=s.who;s.askedKey=key;s.booked[key]={name:'Dona Célia',tag:'remarcação, pedido pelo site',pend:true};
+      if(!s.open.includes('celia'))s.open.push('celia');
+      if(!s.vagas['10|10h'])s.vagas['10|10h']={n:10,h:'10h',origem:'Dona Célia remarcou a 5ª sessão',quem:'celia',st:'aberta',to:null,skip:[]};
+      focusKey='sheet'}
+    s.sheet=false;toast('Pedido enviado para a recepção.')},
+  bpay:v=>{s.bPay=v},
+  bday:v=>{s.bDay=v;s.bTime=null},
+  btime:v=>{s.bTime=v},
+  bask:()=>{const d=DAYS.find(x=>x.id===s.bDay);s.bAsked=`${d.name}, às ${s.bTime}`;s.bKey=`${d.n}|${s.bTime}`;
+    s.booked[s.bKey]={name:'Bruna',tag:'primeira sessão, pedido pelo site',pend:true};s.open.push('bruna');
+    const b=pget('bruna');if(b)b.pay=s.bPay;focusKey=null;scrollTo(0,0);toast('Pedido enviado para a recepção.')},
+  jtab:v=>{s.jtab=v;scrollTo(0,0)},
+  rd:v=>{s.rd=+v},
+  rdnav:v=>{const i=CAL.findIndex(x=>x.n===s.rd)+(+v);if(CAL[i])s.rd=CAL[i].n},
+  ad:v=>{s.ad=+v},
+  adnav:v=>{const i=CAL.findIndex(x=>x.n===s.ad)+(+v);if(CAL[i])s.ad=CAL[i].n},
+  toag:v=>{s.ad=+v;s.jtab='agenda';focusKey=null;scrollTo(0,0)},
+  book:v=>{const [n,h]=v.split(':');s.book={n:+n,h,who:null,ch:'WhatsApp',name:'',pay:null};s.ad=+n;focusKey='bkclose'},
+  bkclose:()=>{s.book=null;focusKey=null},
+  bw:v=>{s.book.who=v},
+  bch:v=>{s.book.ch=v},
+  bkpay:v=>{s.book.pay=v},
+  bookok:()=>{const b=s.book;let name;
+    if(b.who==='novo'){name=b.name.trim();s.pats.push({id:'p'+s.pats.length+'x',name,tel:'—',pay:b.pay,sess:0,fisio:'—',hor:`${dayLabel(b.n)}, ${b.h}`,resp:''})}else name=pname(b.who);
+    s.booked[`${b.n}|${b.h}`]={name,tag:TAGCH[b.ch],pend:false};log(name,'Confirmação da marcação');
+    s.done.unshift({t:`<b>${esc(name)}</b><span>Marcado ${dayLabel(b.n).toLowerCase()}, às ${b.h}</span>`});s.book=null;focusKey=null;toast(`${name} recebeu a confirmação pelo WhatsApp.`)},
+  panel:v=>{s.panel=v;focusKey='closePanel'},
+  closePanel:()=>{s.panel=null;focusKey=null},
+  offer:v=>{const k=s.panel,vg=s.vagas[k],e=s.wait.find(x=>x.id===v),n=pname(v);
+    vg.st='oferta';vg.to=v;e.st='oferta';s.done.unshift({t:`<b>${dayLabel(vg.n)}, às ${vg.h}</b><span>Oferta enviada para ${n}</span>`});
+    log(n,`Oferta de vaga: ${dayLabel(vg.n).toLowerCase()}, às ${vg.h}`);s.panel=null;focusKey=null;toast(`Oferta enviada para ${n} pelo WhatsApp.`)},
+  vaceita:k=>{const vg=s.vagas[k],e=s.wait.find(x=>x.id===vg.to),n=pname(vg.to);
+    vg.st='preenchida';e.st='encaixado';s.booked[k]={name:n,tag:'encaixe pela lista de espera'};
+    s.done.unshift({t:`<b>${n}</b><span>Encaixado ${dayLabel(vg.n).toLowerCase()}, às ${vg.h}</span>`});log(n,'Confirmação do encaixe');focusKey=null;toast(`${n} aceitou. Vaga preenchida.`)},
+  vrecusa:k=>{const vg=s.vagas[k],e=s.wait.find(x=>x.id===vg.to),n=pname(vg.to);
+    vg.skip.push(vg.to);e.st='esperando';vg.st='aberta';vg.to=null;focusKey=null;toast(`${n} recusou. A vaga voltou a ficar aberta.`)},
+  vlivre:k=>{s.freed[k]=true;delete s.vagas[k];s.panel=null;focusKey=null;toast('A vaga ficou livre na agenda.')},
+  wadd:()=>{s.wform={id:null,hours:[],sat:false};focusKey='wclose'},
+  wclose:()=>{s.wform=null;focusKey='wadd'},
+  wwho:v=>{s.wform.id=v},
+  whour:v=>{const h=s.wform.hours,i=h.indexOf(v);if(i>=0)h.splice(i,1);else h.push(v);h.sort((a,b)=>HRS.indexOf(a)-HRS.indexOf(b))},
+  wsat:()=>{s.wform.sat=!s.wform.sat},
+  wsave:()=>{const f=s.wform;s.wait.push({id:f.id,hours:f.hours,sat:f.sat,since:'hoje',note:'',st:'esperando'});s.wform=null;focusKey=null;toast(`${pname(f.id)} entrou na lista de espera.`)},
+  wdel:v=>{s.wait=s.wait.filter(e=>e.id!==v);focusKey=null;toast(`${pname(v)} saiu da lista de espera.`)},
+  pf:v=>{s.pf=v},
+  pnew:()=>{s.form={id:null,name:'',tel:'',pay:null,hor:'',resp:''};focusKey='fclose'},
+  pedit:v=>{const p=pget(v);s.form={id:p.id,name:p.name,tel:p.tel,pay:p.pay,hor:p.hor,resp:p.resp};focusKey='fclose'},
+  fclose:()=>{s.form=null;focusKey=null},
+  fpay:v=>{s.form.pay=v},
+  fsave:()=>{const f=s.form;
+    if(f.id){Object.assign(pget(f.id),{name:f.name.trim(),tel:f.tel.trim(),pay:f.pay,hor:f.hor.trim()||'A definir',resp:f.resp.trim()});toast('Cadastro atualizado.')}
+    else{s.pats.push({id:'n'+s.pats.length,name:f.name.trim(),tel:f.tel.trim(),pay:f.pay,sess:0,fisio:'—',hor:f.hor.trim()||'A definir',resp:f.resp.trim()});toast('Paciente cadastrado.')}
+    s.form=null;focusKey=null},
+  st:v=>{const [id,k]=v.split(':');s.reg[id]=k;if(k==='veio')delete s.reuse[id];s.regSaved=false},
+  reuse:v=>{const [id,k]=v.split(':');s.reuse[id]=k;s.regSaved=false},
+  savereg:()=>{s.regSaved=true;s.done.unshift({t:`<b>Registro do dia</b><span>Salvo, ${reusedCount()} ${reusedCount()===1?'vaga reaproveitada':'vagas reaproveitadas'}</span>`});focusKey=null;toast('Registro salvo na planilha.')},
+  finish:v=>{s.open=s.open.filter(x=>x!==v);
+    const m={rita:['Rita','Relatório enviado no portal'],edson:['Seu Edson','Enviado no portal'],celia:['Dona Célia','5ª sessão remarcada'],extra:['Dona Célia','Sessão a mais confirmada'],bruna:['Bruna','1ª sessão confirmada, 10 horários guardados']}[v];
+    if(v==='extra'){s.extraDone=true;if(s.booked[s.extraKey])s.booked[s.extraKey].pend=false;log('Dona Célia','Confirmação da sessão a mais');toast('Dona Célia recebeu a confirmação pelo WhatsApp.')}
+    if(v==='celia'){s.moved=s.asked;if(s.booked[s.askedKey])s.booked[s.askedKey].pend=false;log('Dona Célia','Confirmação do novo horário');toast('Dona Célia recebeu a confirmação pelo WhatsApp.')}
+    if(v==='bruna'){s.bOk=true;if(s.booked[s.bKey])s.booked[s.bKey].pend=false;const b=pget('bruna');if(b)b.hor=s.bAsked;log('Bruna','Confirmação da 1ª sessão');toast('Bruna recebeu a confirmação pelo WhatsApp.')}
+    s.done.unshift({t:`<b>${m[0]}</b><span>${m[1]}</span>`});focusKey=null},
+  askrep:()=>{s.open=s.open.filter(x=>x!=='rita');s.rita='pedido';s.done.unshift({t:'<b>Rita</b><span>Relatório pedido ao Paulo</span>'});log('Paulo','Pedido de relatório da Rita');focusKey=null;toast('Pedido enviado ao Paulo pelo WhatsApp.')},
+  rep:()=>{s.rep=true;focusKey='closeRep'},
+  closeRep:()=>{s.rep=false;focusKey='rep'},
+  repmodel:()=>{s.repEv='Paciente com dor lombar há 3 meses. Após 2 sessões, relata dor menor ao acordar e já consegue se abaixar sem apoio. A dor ainda aparece no fim do dia, depois de muito tempo sentada.';
+    s.repPlan='Seguir com fortalecimento de abdômen e glúteos e aumentar a carga aos poucos. Peço a renovação para consolidar o ganho e diminuir a chance de a dor voltar.';focusKey='sendrep'},
+  repn:v=>{s.repN=+v},
+  sendrep:()=>{s.rep=false;s.rita='pronto';s.open.push('rita');focusKey=null;toast('Relatório enviado para a Joana.')},
+  vid:v=>{s.vid={pid:v,v:null,note:''};focusKey='vclose'},
+  vclose:()=>{const p=s.vid&&s.vid.pid;s.vid=null;focusKey=p?'vid-'+p:null},
+  vpick:v=>{s.vid.v=v},
+  vsend:()=>{const p=pget(s.vid.pid),v=VIDEOS.find(x=>x.id===s.vid.v),note=s.vid.note.trim();
+    s.vsent.unshift({to:p.name,t:v.t});log(p.name,`Vídeo: ${v.t}`);
+    if(p.id==='celia')s.chat.push({k:'video',t:v.t,d:v.d,note});
+    s.vid=null;focusKey=null;toast(`Vídeo enviado para ${p.name} pelo WhatsApp.`)},
+  rcp:v=>{const [k,id]=v.split(':'),su=sugg(k).map(x=>x[0]),cur=[...(s.sel[k]||su)];const i=cur.indexOf(id);if(i>=0)cur.splice(i,1);else cur.push(id);s.sel[k]=cur},
+  more:v=>{s.more[v]=!s.more[v]},
+  send:v=>{const k=v,su=sugg(k),ids=s.sel[k]||su.map(x=>x[0]);if(!ids.length)return;
+    const names=ids.map(id=>{const f=su.find(x=>x[0]===id);return f&&f[2]?f[2]:pname(id)});
+    s.cnt[k]+=ids.length;s.sentTo[k]=[...(s.sentTo[k]||[]),...ids];s.sel[k]=[];
+    const tp=TPL.find(x=>x.k===k);
+    if(ids.includes('celia'))s.chat.push({k:'txt',txt:tp.txt});
+    s.msgs.unshift({h:'agora',to:names.join(', '),t:tp.n});focusKey=null;toast(`Mensagem enviada para ${names.join(', ')} pelo WhatsApp.`)},
+  mode:v=>{if(v===s.mode)return true;const a=s.total,b=s.chairs,c=calc();s.mode=v;
+    s.total=v==='trilha'?BASE.total-c.g:BASE.total;s.chairs=v==='trilha'?BASE.chairs-Math.round(c.f):BASE.chairs;render();tween(a,s.total,b,s.chairs);return true}
+};
+document.addEventListener('click',e=>{
+  const b=e.target.closest('[data-a]');if(!b)return;
+  if(b.dataset.self&&e.target!==b)return;
+  if(b.disabled)return;
+  focusKey=b.dataset.k||null;
+  const stop=act[b.dataset.a](b.dataset.v);
+  if(!stop)render();
+});
+/* Campos de texto e controles deslizantes atualizam o estado sem redesenhar a página, para não perder o foco */
+document.addEventListener('input',e=>{
+  const d=e.target.dataset||{},val=e.target.value;
+  const tog=(k,ok)=>{const b=document.querySelector(`[data-k="${k}"]`);if(b)b.disabled=!ok};
+  if(d.bkname&&s.book){s.book.name=val;tog('bookok',bookReady());return}
+  if(d.rep){if(d.rep==='ev')s.repEv=val;else s.repPlan=val;tog('sendrep',repOk());return}
+  if(d.vnote&&s.vid){s.vid.note=val;return}
+  if(d.f&&s.form){s.form[d.f]=val;tog('fsave',formOk());return}
+  if(d.q){s.q=val;const q=val.trim().toLowerCase();document.querySelectorAll('[data-row]').forEach(r=>{r.hidden=!!q&&!r.dataset.name.includes(q)});return}
+  const k=d.sim;if(!k)return;
+  s.sim[k]=+val;
+  const c=calc();s.total=BASE.total-c.g;s.chairs=BASE.chairs-Math.round(c.f);
+  const set=(id,v)=>{const el=document.getElementById(id);if(el)el.textContent=v};
+  set('o-'+k,fmt(s.sim[k])+(k==='ori'?' pontos':'%'));set('so-f',fmt1(c.f));set('so-g',brl(c.g));set('so-m',fmt1(c.months)+' meses');
+  set('big',brl(s.total));set('chairs',s.chairs);set('pill-v',brl(c.g));
+});
+document.addEventListener('keydown',e=>{
+  if(e.key!=='Escape')return;
+  const order=[['vid','vclose'],['form','fclose'],['wform','wclose'],['book','bkclose'],['rep','closeRep'],['sheet','closeSheet'],['panel','closePanel']];
+  const hit=order.find(([k])=>s[k]);if(hit){act[hit[1]]();render()}
+});
+render();
+</script>
+
+</body></html>

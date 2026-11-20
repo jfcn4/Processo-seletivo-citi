@@ -1,0 +1,39 @@
+/* Inovação · missão espacial: o que aparece por cima do 3D durante a viagem.
+   Durante a missão o HUD, os nomes dos astros e o painel saem de cena; só fica o botão de pular. */
+body.is-mission .hud-top, body.is-mission .hud-bottom, body.is-mission .credit, body.is-mission #labels,
+body.is-mission #con-label, body.is-mission #panel, body.is-mission #toast {
+  opacity: 0 !important; pointer-events: none !important; transition: opacity .45s ease;
+}
+body.is-mission #scene { cursor: default !important; }
+
+.mi-pular {
+  position: fixed; z-index: 46;
+  top: calc(18px + env(safe-area-inset-top, 0px)); right: max(20px, env(safe-area-inset-right, 0px));
+  display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 9px 14px 9px 16px; border-radius: 999px;
+  font-family: var(--f-mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: rgba(233, 245, 238, .78);
+  background: rgba(3, 8, 10, .42); border: 1px solid rgba(233, 245, 238, .16);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  opacity: 0; transform: translateY(-4px); pointer-events: none;
+  transition: opacity .5s ease, transform .5s ease, color .2s, border-color .2s, background .2s;
+}
+.mi-pular.is-on { opacity: 1; transform: none; pointer-events: auto; }
+.mi-pular:hover { color: #fff; border-color: rgba(233, 245, 238, .4); background: rgba(3, 8, 10, .6); }
+.mi-pular:focus-visible { outline: 2px solid var(--citi); outline-offset: 3px; }
+@media (max-width: 720px) {
+  .mi-pular { top: auto; right: 50%; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); transform: translate(50%, 4px); min-height: 44px; }
+  .mi-pular.is-on { transform: translate(50%, 0); }
+}
+
+/* marcador e arco: um só desenho, projetado do 3D e depois levado até a capa da BAQIAO */
+.mi-arco { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 45; pointer-events: none; overflow: visible; }
+.mi-rota { stroke: var(--iv-red, #f52834); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round;
+  filter: drop-shadow(0 0 5px rgba(245, 40, 52, .55)); }
+.mi-ponto { fill: var(--iv-red, #f52834); filter: drop-shadow(0 0 6px rgba(245, 40, 52, .8)); }
+.mi-pulso { fill: none; stroke: var(--iv-red, #f52834); stroke-width: 1.2; transform-box: fill-box; transform-origin: center;
+  animation: mi-pulso 1.8s cubic-bezier(.2, .7, .3, 1) infinite; }
+.mi-br { fill: #151416; stroke: rgba(255, 255, 255, .85); stroke-width: 1.4; }
+.mi-rot { font-family: var(--f-mono); font-size: 10.5px; letter-spacing: .24em; text-transform: uppercase; fill: rgba(255, 255, 255, .82);
+  paint-order: stroke; stroke: rgba(0, 0, 0, .55); stroke-width: 3px; }
+@keyframes mi-pulso { 0% { transform: scale(.6); opacity: .9; } 100% { transform: scale(2.6); opacity: 0; } }
+@media (max-width: 720px) { .mi-rota { stroke-width: 1.6; } }
+@media (prefers-reduced-motion: reduce) { .mi-pulso { animation: none; } }

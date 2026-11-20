@@ -28,6 +28,8 @@
 <link rel="stylesheet" href="entregas/gente.css">
 <link rel="stylesheet" href="entregas/produto.css">
 <link rel="stylesheet" href="entregas/comercial.css">
+<link rel="stylesheet" href="entregas/inovacao.css">
+<link rel="stylesheet" href="inovacao/missao.css">
 
 <script>
   window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
@@ -447,6 +449,7 @@ body.has-overlay #panel, body.has-overlay .hud-top, body.has-overlay .hud-bottom
 <script src="entregas/gente.js"></script>
 <script src="entregas/produto.js"></script>
 <script src="entregas/comercial.js"></script>
+<script src="entregas/inovacao.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
@@ -455,6 +458,8 @@ body.has-overlay #panel, body.has-overlay .hud-top, body.has-overlay .hud-bottom
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script src="inovacao/terra.js"></script>
+<script src="inovacao/missao.js"></script>
 <script>
 (function () {
 'use strict';
@@ -783,6 +788,8 @@ var Sound = (function () {
       o.connect(g); g.connect(sfx); o.start(t); o.stop(t + 2.5);
       bell(f / 2, t + 0.5, 0.03, 4.5, -0.35, sfx); bell(f * 0.75, t + 0.75, 0.028, 4.5, 0.35, sfx); bell(f, t + 1.0, 0.032, 5, 0, sfx);
     },
+    // o mesmo som do salto da introdução, para o hiperespaço da missão de Inovação
+    salto: function () { if (ready() && ambientOn) warpSound(); },
     duck: function (v) { ducked = v; if (ctx && ambientOn) amb.gain.setTargetAtTime(v ? 0.1 : 1.25, now(), 0.5); },
     setOn: function (v, live) {
       on = v; try { localStorage.setItem('citi-som', v ? 'on' : 'off'); } catch (e) {}
@@ -887,7 +894,8 @@ var composer, composerMSAA = false;
     composer = new THREE.EffectComposer(renderer, rt); composerMSAA = true;
   } else composer = new THREE.EffectComposer(renderer);
 })();
-composer.addPass(new THREE.RenderPass(scene, camera));
+var renderPass = new THREE.RenderPass(scene, camera);   // a missão de Inovação troca a cena deste passe
+composer.addPass(renderPass);
 var bloom = new THREE.UnrealBloomPass(new THREE.Vector2(window.innerWidth / 2, window.innerHeight / 2), 0.8, 0.55, 0.82);
 composer.addPass(bloom);
 
@@ -2204,6 +2212,13 @@ BODIES.forEach(function (b) {
   gridEl.appendChild(cd);
 });
 
+(function () {
+  var cd = document.createElement('button');
+  cd.type = 'button'; cd.className = 'card'; cd.style.setProperty('--accent', '#ff8587');
+  cd.innerHTML = '<span class="c-meta">A nave</span><strong>Inovação</strong><span>BAQIAO 巴桥: uma ponte entre empreendedores brasileiros e o mercado chinês.</span><em class="c-status">Desafio liberado</em>';
+  cd.addEventListener('click', function () { closeList(); abrirInovacao(document.getElementById('btn-list')); });
+  gridEl.appendChild(cd);
+})();
 var listEl = document.getElementById('list');
 function openList() { listEl.hidden = false; document.getElementById('btn-list-close').focus(); }
 function closeList() { listEl.hidden = true; }
@@ -2303,6 +2318,12 @@ function renderPanel(b) {
       bt.addEventListener('click', function () { focusOn(o.key); });
       pl.appendChild(bt);
     });
+    var inov = el('button', 'sun-pl');
+    inov.type = 'button'; inov.style.setProperty('--c', '#ff8587');
+    inov.innerHTML = '<i aria-hidden="true"></i><span><strong>Inovação</strong><small>A nave · BAQIAO</small></span>' +
+      '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M6 3l5 5-5 5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    inov.addEventListener('click', function () { abrirInovacao(inov); });
+    pl.appendChild(inov);
     pBody.appendChild(section('As entregas', [pl]));
     var li = document.createElement('a');
     li.className = 'contact'; li.href = 'https://www.linkedin.com/in/joaofelipecn/'; li.target = '_blank'; li.rel = 'noopener noreferrer';
@@ -2350,7 +2371,7 @@ function startFly(key) {
   Sound.whoosh(da > 0 ? 1 : -1, state.fly.dur + 0.4, true);
 }
 function focusOn(key) {
-  if (state.mode === 'intro' || state.mode === 'warp') return;
+  if (state.mode === 'intro' || state.mode === 'warp' || state.mode === 'inovacao') return;
   Sound.beep(key);
   if (state.focus !== key) Sound.hum(key);
   var switching = state.mode === 'focus' && state.focus && state.focus !== key && !REDUCED;
@@ -2382,7 +2403,10 @@ document.getElementById('p-back').addEventListener('click', unfocus);
 document.getElementById('p-prev').addEventListener('click', function () { step(-1); });
 document.getElementById('p-next').addEventListener('click', function () { step(1); });
 window.addEventListener('keydown', function (e) {
-  if (e.key === 'Escape') { if (!listEl.hidden) closeList(); else unfocus(); }
+  if (e.key === 'Escape') {
+    if (state.mode === 'inovacao') { if (missao && missao.cancel()) e.preventDefault(); return; }
+    if (!listEl.hidden) closeList(); else unfocus();
+  }
   if (state.focus && (e.key === 'ArrowRight' || e.key === 'ArrowLeft')) step(e.key === 'ArrowRight' ? 1 : -1);
 });
 
@@ -2586,20 +2610,20 @@ function setHover(key) {
 canvas.addEventListener('pointerdown', function (e) { down = { x: e.clientX, y: e.clientY }; canvas.style.cursor = 'grabbing'; });
 canvas.addEventListener('pointerup', function (e) {
   canvas.style.cursor = state.hover ? 'pointer' : 'grab';
-  if (!down) return;
+  if (!down || state.mode === 'inovacao') { down = null; return; }
   var dx = e.clientX - down.x, dy = e.clientY - down.y, moved = Math.hypot(dx, dy); down = null;
   // com um astro em foco, deslizar o dedo para o lado na cena troca de planeta (a câmera não gira nesse modo)
   if (state.mode === 'focus' && e.pointerType !== 'mouse' && Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.4) { step(dx < 0 ? 1 : -1); return; }
   if (moved > 6 || state.mode === 'intro' || state.mode === 'warp') return;
   var k = pick(e);
-  if (k === 'inova') { haptic(); mostrarNome('inova', 'Inovação', '#c9ffdc'); return; }
+  if (k === 'inova') { haptic(); iniciarMissao(); return; }
   if (k === 'institucional') { haptic(); mostrarNome('vaga', 'Institucional', '#e6dccb'); return; }
   if (k) { haptic(); focusOn(k); }
   else if (!state.focus && conNear(e.clientX, e.clientY, e.pointerType === 'mouse' ? 20 : 30)) revealConstellation(true);
   else if (state.focus) unfocus();
 });
 canvas.addEventListener('pointermove', function (e) {
-  if (e.pointerType !== 'mouse' || down) return;
+  if (e.pointerType !== 'mouse' || down || state.mode === 'inovacao') return;
   var k = pick(e); setHover(k);
   var near = !k && !state.focus && state.mode === 'free' && conNear(e.clientX, e.clientY, 20);
   constellation.hovering = near;
@@ -2657,6 +2681,7 @@ function endWarp() {
   document.body.classList.add('is-live');
   Sound.ambientIn();
   toWake.forEach(function (b, i) { if (b.awaiting) b.wakeAt = clock.elapsedTime + 0.6 + i * 1.6; });
+  agendarPreCarga();
 }
 function startExploration() {
   if (state.mode !== 'intro') return;
@@ -2870,11 +2895,11 @@ function makeInovaShip(scale) {
   g.add(new THREE.Mesh(K.fin, I.trim));
   var cab = new THREE.Mesh(new THREE.SphereGeometry(0.2, 28, 16, 0, Math.PI * 2, 0, Math.PI / 2), I.glass);
   cab.scale.set(1.05, 1.0, 2.3); cab.position.set(0, 0.24, 0.6); g.add(cab);
-  g.userData.glows = [];
+  g.userData.glows = []; g.userData.trails = [];
   [-0.24, 0.24].forEach(function (ex) {
     var e = new THREE.Mesh(K.eng, I.trim); e.position.set(ex, -0.02, -1.0); g.add(e);
     var tr = new THREE.Mesh(K.trail, new THREE.MeshBasicMaterial({ map: K.trailTex, color: 0x8dffc0, transparent: true, opacity: 0.75, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
-    tr.position.x = ex; tr.position.y = -0.02; g.add(tr);
+    tr.position.x = ex; tr.position.y = -0.02; g.add(tr); g.userData.trails.push(tr);
     var gl = new THREE.Sprite(new THREE.SpriteMaterial({ map: I.glow, color: 0xb4ffd2, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false }));
     gl.position.set(ex, -0.02, -1.3); gl.scale.set(0.75, 0.75, 1); g.add(gl); g.userData.glows.push(gl);
   });
@@ -2895,7 +2920,7 @@ var nave = (function () {
   trail.frustumCulled = false; trail.visible = false; scene.add(trail);
   var hit = new THREE.Mesh(new THREE.SphereGeometry(2.6, 10, 10), new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false }));
   hit.userData.key = 'inova'; scene.add(hit); pickables.push(hit);
-  return { g: g, trail: trail, pos: pos, col: col, geo: geo, N: N, hist: [], hit: hit, leg: 0, fase: 'parado', t: 0, dur: 1, ang: 0,
+  return { g: g, trail: trail, pos: pos, col: col, geo: geo, N: N, hist: [], hit: hit, leg: 0, fase: 'parado', t: 0, dur: 1, ang: 0, vel: 0,
     p: new THREE.Vector3(), s0: new THREE.Vector3(), c1: new THREE.Vector3(), fwd: new THREE.Vector3(0, 0, 1), started: false };
 })();
 var nTmp = new THREE.Vector3(), nTmp2 = new THREE.Vector3(), nTmp3 = new THREE.Vector3(), nLook = new THREE.Vector3(), nQ = new THREE.Quaternion(), nM = new THREE.Matrix4();
@@ -2938,17 +2963,29 @@ function updateNave(dt, t) {
     n.g.quaternion.slerp(nQ, Math.min(1, dt * 6));
   }
   n.g.position.copy(n.p); n.hit.position.copy(n.p);
-  n.g.userData.glows.forEach(function (gl, i) { gl.material.opacity = 0.75 + Math.sin(t * 22 + i * 1.7) * 0.2; });
+  if (dt > 0) n.vel += (prev.distanceTo(n.p) / dt - n.vel) * Math.min(1, dt * 8);   // velocidade de cruzeiro (a missão parte dela)
+  naveRastro(dt, t, 0);
+}
+// motores, luzes de navegação e rastro verde. `forca` (0 a 1) é o empuxo: a missão de Inovação aumenta
+function naveRastro(dt, t, forca) {
+  var n = nave, f0 = forca || 0;
+  n.g.userData.glows.forEach(function (gl, i) { gl.material.opacity = Math.min(1, 0.75 + 0.2 * f0 + Math.sin(t * 22 + i * 1.7) * 0.2 * (1 - 0.6 * f0)); });
   n.g.userData.nav.forEach(function (s, i) { s.material.opacity = (Math.sin(t * 3.2 + i * Math.PI) > 0.55) ? 1 : 0.15; });
-  // rastro
-  var h = n.hist;
-  if (!h.length || h[0].distanceToSquared(n.p) > 0.09) { h.unshift(n.p.clone()); if (h.length > n.N) h.pop(); }
+  var h = n.hist, gain = 0.8 + 0.5 * f0;
+  if (!h.length || h[0].distanceToSquared(n.p) > 0.09) { h.unshift(h.length >= n.N ? h.pop().copy(n.p) : n.p.clone()); }
   for (var i = 0; i < n.N; i++) {
-    var q = h[Math.min(i, h.length - 1)] || n.p, f = Math.max(0, 1 - i / Math.min(n.N, h.length || 1)), w = f * f * 0.8;
+    var q = h[Math.min(i, h.length - 1)] || n.p, f = Math.max(0, 1 - i / Math.min(n.N, h.length || 1)), w = f * f * gain;
     n.pos[i * 3] = q.x; n.pos[i * 3 + 1] = q.y; n.pos[i * 3 + 2] = q.z;
     n.col[i * 3] = w * 0.55; n.col[i * 3 + 1] = w; n.col[i * 3 + 2] = w * 0.75;
   }
   n.geo.attributes.position.needsUpdate = n.geo.attributes.color.needsUpdate = true;
+}
+// depois da missão: a nave volta para a rota pelos seis planetas a partir de `de` (ou de onde está)
+function naveRetomar(de) {
+  var n = nave;
+  if (de) n.p.copy(de);
+  n.hist.length = 0; n.started = true; n.g.visible = n.trail.visible = true;
+  naveProxima();
 }
 
 /* =========================================================
@@ -2993,6 +3030,59 @@ function updateVaga(dt, t) {
   vaga.m.rotation.set(t * 0.21, t * 0.13, t * 0.07);
 }
 
+/* =========================================================
+   Inovação: a missão espacial (inovacao/missao.js) e a entrega BAQIAO (entregas/inovacao.js)
+   Clicar na nave muda o modo para 'inovacao': a missão passa a mandar na câmera e na nave até
+   devolver o sistema na visão geral. A introdução continua usando o modo 'warp', intacto.
+   ========================================================= */
+var entregaInova = window.CITI_ENTREGAS && window.CITI_ENTREGAS.inova;
+var missao = (window.CITI_MISSAO && window.CITI_TERRA) ? window.CITI_MISSAO.criar({
+  THREE: THREE, camera: camera, scene: scene, renderer: renderer, renderPass: renderPass, bloom: bloom, quality: quality,
+  COARSE: COARSE, base: '', nave: nave, naveRastro: naveRastro, naveRetomar: naveRetomar,
+  warp: warp, updateWarp: updateWarp, updatePixAng: updatePixAng, overviewPos: overviewPos, Sound: Sound,
+  aoTerminar: function () {
+    state.mode = 'free'; state.saved = null; camera.up.set(0, 1, 0);
+    controls.target.set(0, 0, 0); controls.enabled = true;
+  }
+}) : null;
+if (entregaInova) entregaInova.conectar({
+  duck: Sound.duck,
+  // fechar a entrega depois da viagem traz a câmera de volta à visão geral
+  aoFechar: function () { if (missao && missao.fase() === 'completed') missao.reset(); }
+});
+function iniciarMissao() {
+  if (state.mode === 'intro' || state.mode === 'warp' || state.mode === 'inovacao') return;
+  // movimento reduzido (ou sem o controlador): a entrega abre direto, sem a viagem
+  if (REDUCED || !missao) { if (entregaInova) entregaInova.abrir(); return; }
+  if (missao.ativa()) return;
+  if (state.focus) unfocus();
+  if (!listEl.hidden) closeList();
+  setHover(null); constellation.hovering = false; down = null;
+  state.mode = 'inovacao'; state.fly = null; controls.enabled = false;
+  if (entregaInova) entregaInova.pedirFontes();
+  missao.start();
+}
+// atalhos (modo lista, painel do Sol): abrem a entrega sem a viagem
+function abrirInovacao(foco) { if (entregaInova && state.mode !== 'inovacao') entregaInova.abrir(null, foco); }
+// no computador, as texturas da Terra descem com o site ocioso, para a primeira viagem não esperar
+function agendarPreCarga() {
+  if (!missao || COARSE || REDUCED) return;
+  var c = navigator.connection; if (c && (c.saveData || /2g/.test(c.effectiveType || ''))) return;
+  setTimeout(function () { (window.requestIdleCallback || function (f) { setTimeout(f, 1); })(function () { missao.preCarregar(); }); }, 6000);
+}
+
+// ?debug na URL: ganchos de teste (posição da nave na tela, para clicar nela de verdade)
+if (/[?&]debug\b/.test(location.search)) window.CITI_DEBUG = {
+  naveTela: function () { var v = nave.p.clone().project(camera); return { x: (v.x * 0.5 + 0.5) * window.innerWidth, y: (-v.y * 0.5 + 0.5) * window.innerHeight, vis: v.z < 1 && nave.g.visible }; },
+  modo: function () { return state.mode; }, fase: function () { return missao ? missao.fase() : null; },
+  naveFase: function () { return nave.fase; },
+  naveMundo: function () { return nave.p.toArray(); },
+  tempo: function () { return missao ? missao.tempo() : 0; },
+  memoria: function () { var m = renderer.info.memory; return { geo: m.geometries, tex: m.textures, prog: renderer.info.programs.length }; },
+  controles: function () { return controls.enabled; },
+  pausa: false   // congela o tempo da cena (capturas em instantes exatos)
+};
+
 /* nome que aparece só no clique e some sozinho depois de alguns segundos */
 var nomeFlutua = document.createElement('div'); nomeFlutua.className = 'nome-flutua'; nomeFlutua.setAttribute('aria-live', 'polite');
 labelsEl.appendChild(nomeFlutua);
@@ -3019,10 +3109,11 @@ function damp(k, dt) { return 1 - Math.exp(-k * dt); }
 function tick() {
   // com uma entrega aberta em tela cheia, o sistema solar fica escondido atrás dela: pausa o 3D e poupa o computador
   // (o modo lista também cobre a tela inteira)
-  var overlayOpen = !!document.querySelector('#dx:not([hidden]), #mk:not([hidden]), #dv:not([hidden]), #gg:not([hidden]), #pd:not([hidden]), #cm:not([hidden])');
+  var overlayOpen = !!document.querySelector('#dx:not([hidden]), #mk:not([hidden]), #dv:not([hidden]), #gg:not([hidden]), #pd:not([hidden]), #cm:not([hidden]), #iv:not([hidden]):not(.is-staging)');
   document.body.classList.toggle('has-overlay', overlayOpen);
   if (!listEl.hidden || overlayOpen) { clock.getDelta(); quality.acc = quality.n = 0; requestAnimationFrame(tick); return; }
   var rawDt = clock.getDelta(), dt = Math.min(rawDt, 0.05), t = clock.elapsedTime;
+  if (window.CITI_DEBUG && window.CITI_DEBUG.pausa) dt = 0;
   state.timeScale += ((state.focus ? 0.04 : 1) - state.timeScale) * damp(2.5, dt);
   // as órbitas ficam paradas na tela de início, para a posição na chegada ser sempre a mesma
   state.sim += dt * state.timeScale * (REDUCED ? 0.35 : 1) * (state.mode === 'intro' ? 0 : 1);
@@ -3058,7 +3149,7 @@ function tick() {
   flares.forEach(function (f) { var u = f.userData; f.material.opacity = REDUCED ? u.base * 0.7 : u.base * (0.35 + 0.65 * Math.max(0, Math.sin(t * u.sp + u.ph))); });
   asteroidBelt.rotation.y = state.sim * 0.035;
   updateComet(dt);
-  updateNave(dt, t);
+  if (!(state.mode === 'inovacao' && missao && missao.controlaNave())) updateNave(dt, t);
   updateVaga(dt, t);
   updateConstellation(dt, t);
   updateProms(dt, t);
@@ -3094,6 +3185,8 @@ function tick() {
       camTarget.lerp(goalTarget, damp(3.2, dt));
       camera.lookAt(camTarget);
     }
+  } else if (state.mode === 'inovacao') {
+    missao.update(dt, t);   // a missão é a única dona da câmera e da nave
   } else if (state.mode === 'returning') {
     camera.position.lerp(state.saved.pos, damp(2.2, dt));
     camTarget.lerp(state.saved.target, damp(2.8, dt));
@@ -3119,7 +3212,7 @@ function tick() {
     b.rPx = (b.sun ? SUN_R : b.R) * sc * pxPerUnit / dist;          // raio do disco visível, em pixels
     proj.project(camera);
     b.onScreen = proj.z < 1 && Math.abs(proj.x) < 1.1 && Math.abs(proj.y) < 1.1;
-    b.lv = b.onScreen && state.mode !== 'intro' && state.mode !== 'warp';
+    b.lv = b.onScreen && state.mode !== 'intro' && state.mode !== 'warp' && state.mode !== 'inovacao';
     b.cx = (proj.x * 0.5 + 0.5) * W; b.cy = (-proj.y * 0.5 + 0.5) * H;
     b.lx = b.cx; b.ly = b.cy + b.rPx * (b.sun ? 1.25 : 1.35) + 6;
   });
